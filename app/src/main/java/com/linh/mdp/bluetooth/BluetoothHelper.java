@@ -45,6 +45,19 @@ public class BluetoothHelper {
     private boolean isListeningForConnection = false;
     private Thread serverThread;
 
+    // Auto-reconnection fields
+    private BluetoothDevice lastConnectedDevice;
+    private boolean autoReconnectEnabled = true;
+    private boolean isAutoReconnecting = false;
+    private static final int RECONNECTION_DELAY_MS = 60000; // 60 seconds
+    private static final int MAX_RECONNECTION_ATTEMPTS = 5;
+    private int reconnectionAttempts = 0;
+    private Handler reconnectionHandler = new Handler(Looper.getMainLooper());
+    // Suppress onWaitingForConnection UI callback once when we need to delay UI navigation
+    private boolean suppressNextWaitingCallback = false;
+    // Delayed disconnection notifier to allow a 60s grace period before notifying UI
+    private Runnable delayedDisconnectionNotifier;
+
     private final BroadcastReceiver receiver = new BroadcastReceiver() {
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
@@ -281,6 +294,13 @@ public class BluetoothHelper {
 
                     Log.i(TAG, "Bluetooth connection established successfully with streams ready");
 
+                    // Store the connected device and stop any reconnection attempts
+                    lastConnectedDevice = device;
+                    stopAutoReconnect();
+                    reconnectionAttempts = 0;
+                    // Cancel any pending delayed disconnect notifier since we've reconnected
+                    cancelDelayedDisconnectionNotifier();
+
                     new Handler(Looper.getMainLooper()).post(() -> {
                         if (connectionListener != null) {
                             connectionListener.onDeviceConnected(device);
@@ -299,11 +319,27 @@ public class BluetoothHelper {
 
             } catch (IOException e) {
                 Log.e(TAG, "Connection failed after all attempts", e);
-                new Handler(Looper.getMainLooper()).post(() -> {
-                    if (connectionListener != null) {
-                        connectionListener.onConnectionFailed("Failed to connect: " + e.getMessage());
-                    }
-                });
+
+                // If auto-reconnect is enabled and we have a last connected device, try to reconnect
+                if (autoReconnectEnabled && lastConnectedDevice != null &&
+                    device.getAddress().equals(lastConnectedDevice.getAddress()) &&
+                    reconnectionAttempts < MAX_RECONNECTION_ATTEMPTS) {
+
+                    reconnectionAttempts++;
+                    Log.d(TAG, "Scheduling reconnection attempt " + reconnectionAttempts + "/" + MAX_RECONNECTION_ATTEMPTS);
+
+                    reconnectionHandler.postDelayed(() -> {
+                        if (autoReconnectEnabled && !isConnected()) {
+                            connectToDevice(device);
+                        }
+                    }, RECONNECTION_DELAY_MS);
+                } else {
+                    new Handler(Looper.getMainLooper()).post(() -> {
+                        if (connectionListener != null) {
+                            connectionListener.onConnectionFailed("Failed to connect: " + e.getMessage());
+                        }
+                    });
+                }
             } catch (SecurityException e) {
                 Log.e(TAG, "Permission denied when connecting", e);
                 new Handler(Looper.getMainLooper()).post(() -> {
@@ -392,7 +428,7 @@ public class BluetoothHelper {
         for (int channel : channels) {
             try {
                 Log.d(TAG, "Trying reflection-based connection with channel: " + channel);
-                Method method = device.getClass().getMethod("createRfcommSocket", int.class);
+                Method method = device.getClass().getMethod("createeeeeeeeeeeeeRfcommSocket", int.class);
                 socket = (BluetoothSocket) method.invoke(device, channel);
                 socket.connect();
                 Log.i(TAG, "Reflection-based connection successful with channel: " + channel);
@@ -443,9 +479,11 @@ public class BluetoothHelper {
 
         stopDiscovery();
 
-        if (connectionListener != null) {
+        if (connectionListener != null && !suppressNextWaitingCallback) {
             connectionListener.onWaitingForConnection(device);
         }
+        // Reset suppression after one use
+        suppressNextWaitingCallback = false;
 
         startListeningForConnection(device);
     }
@@ -490,6 +528,11 @@ public class BluetoothHelper {
                         if (connectionListener != null) {
                             connectionListener.onConnectionTimeout();
                         }
+                        // Auto-restart listening if enabled
+                        if (autoReconnectEnabled && targetDevice != null) {
+                            Log.d(TAG, "Auto-reconnect waiting enabled, restarting listen");
+                            reconnectionHandler.postDelayed(() -> startListeningForConnection(targetDevice), RECONNECTION_DELAY_MS);
+                        }
                     }
                 }, BluetoothConstants.CONNECTION_TIMEOUT_MS);
 
@@ -508,6 +551,12 @@ public class BluetoothHelper {
 
                         inputStream = bluetoothSocket.getInputStream();
                         outputStream = bluetoothSocket.getOutputStream();
+
+                        // Record the connected device and cancel any pending delayed disconnect notifier
+                        lastConnectedDevice = targetDevice;
+                        cancelDelayedDisconnectionNotifier();
+                        stopAutoReconnect();
+                        reconnectionAttempts = 0;
 
                         new Handler(Looper.getMainLooper()).post(() -> {
                             if (connectionListener != null) {
@@ -603,6 +652,11 @@ public class BluetoothHelper {
             while (bluetoothSocket != null && bluetoothSocket.isConnected()) {
                 try {
                     bytes = inputStream.read(buffer);
+                    if (bytes == -1) {
+                        Log.i(TAG, "Input stream closed by remote device");
+                        handleConnectionLost("Remote closed stream");
+                        break;
+                    }
                     String receivedData = new String(buffer, 0, bytes);
 
                     new Handler(Looper.getMainLooper()).post(() -> {
@@ -612,10 +666,52 @@ public class BluetoothHelper {
                     });
                 } catch (IOException e) {
                     Log.e(TAG, "Error reading data", e);
+                    handleConnectionLost(e.getMessage());
                     break;
                 }
             }
         }).start();
+    }
+
+    private synchronized void handleConnectionLost(String reason) {
+        Log.w(TAG, "Connection lost: " + reason);
+
+        // Close streams and socket safely
+        try {
+            if (inputStream != null) {
+                try { inputStream.close(); } catch (IOException ignore) {}
+            }
+            if (outputStream != null) {
+                try { outputStream.close(); } catch (IOException ignore) {}
+            }
+            if (bluetoothSocket != null) {
+                try { bluetoothSocket.close(); } catch (IOException ignore) {}
+            }
+        } finally {
+            inputStream = null;
+            outputStream = null;
+            bluetoothSocket = null;
+        }
+
+        if (autoReconnectEnabled && lastConnectedDevice != null) {
+            // Start listening for the same device to reconnect and suppress immediate waiting callback
+            suppressNextWaitingCallback = true;
+            waitForConnectionFromDevice(lastConnectedDevice);
+        }
+
+        // Notify UI immediately; Activity will handle the 60s grace period
+        new Handler(Looper.getMainLooper()).post(() -> {
+            if (connectionListener != null) {
+                connectionListener.onDeviceDisconnected();
+            }
+        });
+    }
+
+    private synchronized void cancelDelayedDisconnectionNotifier() {
+        if (delayedDisconnectionNotifier != null) {
+            reconnectionHandler.removeCallbacks(delayedDisconnectionNotifier);
+            delayedDisconnectionNotifier = null;
+        }
     }
 
     public void sendData(String data) {
@@ -735,6 +831,63 @@ public class BluetoothHelper {
 
         } catch (Exception e) {
             Log.e(TAG, "Error during cleanup", e);
+        }
+    }
+
+    // New methods for auto-reconnection
+
+    public void enableAutoReconnect(boolean enable) {
+        this.autoReconnectEnabled = enable;
+        Log.d(TAG, "Auto-reconnect " + (enable ? "enabled" : "disabled"));
+    }
+
+    public void connectLastDevice() {
+        if (lastConnectedDevice != null) {
+            Log.d(TAG, "Attempting to reconnect to last connected device: " + lastConnectedDevice.getAddress());
+            connectToDevice(lastConnectedDevice);
+        } else {
+            Log.w(TAG, "No last connected device to reconnect to");
+        }
+    }
+
+    private void scheduleReconnect(final BluetoothDevice device) {
+        reconnectionAttempts = 0;
+
+        reconnectionHandler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (isAutoReconnecting && reconnectionAttempts < MAX_RECONNECTION_ATTEMPTS) {
+                    Log.d(TAG, "Reconnection attempt " + (reconnectionAttempts + 1) + " to device: " + device.getAddress());
+                    connectToDevice(device);
+                    reconnectionAttempts++;
+                } else {
+                    Log.d(TAG, "Max reconnection attempts reached or reconnection stopped");
+                }
+            }
+        }, RECONNECTION_DELAY_MS);
+    }
+
+    private void startAutoReconnect(final BluetoothDevice device) {
+        isAutoReconnecting = true;
+        scheduleReconnect(device);
+    }
+
+    private void stopAutoReconnect() {
+        isAutoReconnecting = false;
+        reconnectionHandler.removeCallbacksAndMessages(null);
+        Log.d(TAG, "Auto-reconnect stopped");
+    }
+
+    private void onDeviceConnectedInternal(BluetoothDevice device) {
+        Log.i(TAG, "Device connected: " + device.getAddress());
+        lastConnectedDevice = device;
+        stopAutoReconnect(); // Stop any ongoing reconnection attempts
+    }
+
+    private void onDeviceDisconnectedInternal() {
+        Log.i(TAG, "Device disconnected, starting auto-reconnect if enabled");
+        if (autoReconnectEnabled) {
+            startAutoReconnect(lastConnectedDevice);
         }
     }
 }
