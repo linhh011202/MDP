@@ -291,7 +291,6 @@ public class BluetoothActivity extends AppCompatActivity implements BluetoothCon
     public void onDeviceDisconnected() {
         runOnUiThread(() -> {
             statusText.setText("Device disconnected");
-            Toast.makeText(this, "Device disconnected", Toast.LENGTH_SHORT).show();
             updateUI();
         });
     }

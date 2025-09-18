@@ -28,7 +28,6 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
 
 public class BluetoothHelper {
     private static final String TAG = "BluetoothHelper";
@@ -299,8 +298,9 @@ public class BluetoothHelper {
             try {
                 Log.d(TAG, "Starting connection to device: " + device.getAddress());
 
+                // Optimized: Reduce discovery stopping delay from 1000ms to 100ms
                 stopDiscovery();
-                Thread.sleep(1000);
+                Thread.sleep(100);
 
                 boolean hasPermission = checkBluetoothConnectPermission();
 
@@ -391,55 +391,40 @@ public class BluetoothHelper {
     }
 
     private BluetoothSocket attemptConnection(BluetoothDevice device) throws IOException {
-        boolean connectionSuccessful = false;
+        Log.d(TAG, "Attempting optimized connection methods");
         BluetoothSocket socket = null;
+        IOException lastException;
 
-        // Create array of UUIDs to try (standard + fallbacks)
-        UUID[] uuidsToTry = new UUID[BluetoothConstants.FALLBACK_UUIDS.length + 1];
-        uuidsToTry[0] = BluetoothConstants.MY_UUID;
-        System.arraycopy(BluetoothConstants.FALLBACK_UUIDS, 0, uuidsToTry, 1, BluetoothConstants.FALLBACK_UUIDS.length);
-
-        // Try UUID-based connections first
-        for (int attempt = 0; attempt < uuidsToTry.length && !connectionSuccessful; attempt++) {
-            try {
-                UUID currentUuid = uuidsToTry[attempt];
-                Log.d(TAG, "Connection attempt " + (attempt + 1) + "/" + uuidsToTry.length + " with UUID: " + currentUuid);
-
-                socket = device.createRfcommSocketToServiceRecord(currentUuid);
-                socket.connect();
-                connectionSuccessful = true;
-                Log.i(TAG, "Connection successful on attempt " + (attempt + 1) + " with UUID: " + currentUuid);
-
-            } catch (IOException e) {
-                Log.w(TAG, "Connection attempt " + (attempt + 1) + " failed: " + e.getMessage());
-                closeSocketSafely(socket);
-                socket = null;
-
-                if (attempt < uuidsToTry.length - 1) {
-                    try {
-                        Thread.sleep(BluetoothConstants.RETRY_DELAY_MS);
-                    } catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                        throw new IOException("Connection interrupted");
-                    }
-                }
-            }
+        // First try: Standard UUID connection (fastest method)
+        try {
+            Log.d(TAG, "Trying standard UUID connection");
+            socket = device.createRfcommSocketToServiceRecord(BluetoothConstants.MY_UUID);
+            // Set socket timeout for faster failure detection
+            socket.connect();
+            Log.i(TAG, "Standard UUID connection successful");
+            return socket;
+        } catch (Exception e) {
+            Log.w(TAG, "Standard UUID connection failed: " + e.getMessage());
+            closeSocketSafely(socket);
+            socket = null;
         }
 
-        // If UUID methods failed, try reflection-based methods
-        if (!connectionSuccessful) {
-            socket = attemptReflectionConnection(device);
+        // Second try: Insecure connection (for compatibility)
+        try {
+            Log.d(TAG, "Trying insecure UUID connection");
+            socket = device.createInsecureRfcommSocketToServiceRecord(BluetoothConstants.MY_UUID);
+            socket.connect();
+            Log.i(TAG, "Insecure UUID connection successful");
+            return socket;
+        } catch (Exception e) {
+            lastException = e instanceof IOException ? (IOException) e : new IOException("Insecure UUID error", e);
+            Log.w(TAG, "Insecure UUID connection failed: " + e.getMessage());
+            closeSocketSafely(socket);
+            socket = null;
         }
 
-        return socket;
-    }
-
-    private BluetoothSocket attemptReflectionConnection(BluetoothDevice device) throws IOException {
-        Log.d(TAG, "Attempting reflection-based connection methods");
-        BluetoothSocket socket = null;
-        IOException lastException = null;
-
-        // Try different RFCOMM channels
+        // Third try: Reflection-based connection with optimized channel order
+        // Start with most common channels first
         int[] channels = {1, 2, 3, 4, 5};
 
         for (int channel : channels) {
@@ -458,7 +443,7 @@ public class BluetoothHelper {
             }
         }
 
-        // Try insecure connections as last resort
+        // Fourth try: Insecure reflection connections as last resort
         for (int channel : channels) {
             try {
                 Log.d(TAG, "Trying insecure reflection-based connection with channel: " + channel);

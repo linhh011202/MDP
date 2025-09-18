@@ -397,13 +397,7 @@ public class ObstacleController {
         // Confirm adding the obstacle permanently
         gridAdapter.setObstacle(obstacleRow, obstacleCol, true);
 
-        // Retrieve the assigned obstacle number
-        int assignedId = gridAdapter.getObstacleNumber(obstacleRow, obstacleCol);
-
         showToast("Obstacle confirmed at (" + displayRow + ", " + displayCol + ")");
-
-        // Send POSITION message via Bluetooth
-        sendPositionMessage(assignedId, displayCol, displayRow);
 
         // Clear the temporary row/column highlight
         gridAdapter.clearTempRowColHighlight();
@@ -441,9 +435,6 @@ public class ObstacleController {
             showToast("Cannot determine obstacle ID");
             return;
         }
-
-        // Send DIRECTION message
-        sendDirectionMessage(obstacleNumber, selectedDirection.toUpperCase());
 
         // Keep the border as the committed direction; just clear preview state
         hasPreviewBorder = false;
@@ -639,42 +630,6 @@ public class ObstacleController {
             hasPreviewBorder = false;
             previewBorderRow = -1;
             previewBorderCol = -1;
-        }
-    }
-
-    private void sendPositionMessage(int obstacleId, int x, int y) {
-        if (bluetoothHelper != null && bluetoothHelper.isConnected()) {
-            String positionMessage = "POSITION " + obstacleId + " " + x + " " + y;
-            bluetoothHelper.sendData(positionMessage);
-
-            if (obstacleListener != null) {
-                String timestamp = obstacleListener.getCurrentTimestamp();
-                String formattedMessage = "[" + timestamp + "] SENT: " + positionMessage + "\n";
-                obstacleListener.appendToReceivedData(formattedMessage);
-                obstacleListener.appendToSentData(formattedMessage);
-            }
-
-            showToast("Sent: " + positionMessage);
-        } else {
-            showToast("Not connected - POSITION message not sent");
-        }
-    }
-
-    private void sendDirectionMessage(int obstacleId, String direction) {
-        if (bluetoothHelper != null && bluetoothHelper.isConnected()) {
-            String dirMessage = "DIRECTION " + obstacleId + " " + direction;
-            bluetoothHelper.sendData(dirMessage);
-
-            if (obstacleListener != null) {
-                String timestamp = obstacleListener.getCurrentTimestamp();
-                String formattedMessage = "[" + timestamp + "] SENT: " + dirMessage + "\n";
-                obstacleListener.appendToReceivedData(formattedMessage);
-                obstacleListener.appendToSentData(formattedMessage);
-            }
-
-            showToast("Sent: " + dirMessage);
-        } else {
-            showToast("Not connected - DIRECTION not sent");
         }
     }
 

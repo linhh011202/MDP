@@ -155,7 +155,7 @@ public class MessageParser {
     }
 
     /**
-     * Parse and handle TARGET messages in JSON format: {"cat": "image-rec", "value": {"image_id": "A", "obstacle_id": "1"}}
+     * Parse and handle TARGET messages in JSON format: {"cat": "image-rec", "value": "{\"image_id\": \"A\", \"obstacle_id\": \"1\"}"}
      */
     public void parseAndHandleTargetMessages(String data) {
         if (data == null || gridAdapter == null) return;
@@ -164,76 +164,86 @@ public class MessageParser {
         if (trimmed.isEmpty()) return;
 
         // Check if this is a JSON message
-        if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
-            try {
-                JSONObject jsonObject = new JSONObject(trimmed);
+        try {
+            JSONObject jsonObject = new JSONObject(trimmed);
 
-                // Check if this is an image-rec message
-                if (jsonObject.has("cat") && "image-rec".equals(jsonObject.getString("cat"))) {
+            // Check if this is an image-rec message
+            if (jsonObject.has("cat") && "image-rec".equals(jsonObject.getString("cat"))) {
 
-                    // Extract the value object
-                    if (jsonObject.has("value")) {
-                        JSONObject valueObject = jsonObject.getJSONObject("value");
+                // Extract the value - it can be either a JSON object or a JSON string
+                if (jsonObject.has("value")) {
+                    JSONObject valueObject;
 
-                        // Extract image_id and obstacle_id
-                        if (valueObject.has("image_id") && valueObject.has("obstacle_id")) {
-                            String imageId = valueObject.getString("image_id");
-                            String obstacleIdStr = valueObject.getString("obstacle_id");
+                    // Check if value is a string (nested JSON) or already an object
+                    Object valueRaw = jsonObject.get("value");
+                    if (valueRaw instanceof String) {
+                        // Parse the nested JSON string
+                        String valueString = jsonObject.getString("value");
+                        valueObject = new JSONObject(valueString);
+                    } else {
+                        // Value is already a JSON object
+                        valueObject = jsonObject.getJSONObject("value");
+                    }
 
-                            // Parse obstacle number
-                            int obstacleNumber = Integer.parseInt(obstacleIdStr);
+                    // Extract image_id and obstacle_id
+                    if (valueObject.has("image_id") && valueObject.has("obstacle_id")) {
+                        String imageId = valueObject.getString("image_id");
+                        String obstacleIdStr = valueObject.getString("obstacle_id");
 
-                            // Apply target styling to the obstacle using image_id as the target ID
-                            boolean success = gridAdapter.setObstacleAsTarget(obstacleNumber, imageId);
+                        // Parse obstacle number
+                        int obstacleNumber = Integer.parseInt(obstacleIdStr);
 
-                            if (success) {
-                                Log.d(TAG, "Target assigned: Obstacle " + obstacleNumber + " -> Image ID: " + imageId);
+                        // Apply target styling to the obstacle using image_id as the target ID
+                        boolean success = gridAdapter.setObstacleAsTarget(obstacleNumber, imageId);
 
-                                if (listener != null) {
-                                    listener.onTargetMessageParsed(obstacleNumber, imageId);
-                                    listener.showToast("Obstacle " + obstacleNumber + " marked as target: " + imageId);
+                        if (success) {
+                            Log.d(TAG, "Target assigned: Obstacle " + obstacleNumber + " -> Image ID: " + imageId);
 
-                                    // Add to received data display
-                                    String timestamp = listener.getCurrentTimestamp();
-                                    String formattedMessage = "[" + timestamp + "] IMAGE-REC: Obstacle " + obstacleNumber + " -> " + imageId + "\n";
-                                    listener.appendToReceivedData(formattedMessage);
-                                }
-                            } else {
-                                Log.w(TAG, "Failed to assign target: Obstacle " + obstacleNumber + " not found");
-                                if (listener != null) {
-                                    listener.showToast("Obstacle " + obstacleNumber + " not found - cannot assign target");
-                                }
+                            if (listener != null) {
+                                listener.onTargetMessageParsed(obstacleNumber, imageId);
+                                listener.showToast("Obstacle " + obstacleNumber + " marked as target: " + imageId);
+
+                                // Add to received data display
+                                String timestamp = listener.getCurrentTimestamp();
+                                String formattedMessage = "[" + timestamp + "] IMAGE-REC: Obstacle " + obstacleNumber + " -> " + imageId + "\n";
+                                listener.appendToReceivedData(formattedMessage);
                             }
                         } else {
-                            Log.w(TAG, "Missing image_id or obstacle_id in JSON value object");
+                            Log.w(TAG, "Failed to assign target: Obstacle " + obstacleNumber + " not found");
                             if (listener != null) {
-                                listener.showToast("Invalid image recognition message: missing required fields");
+                                listener.showToast("Obstacle " + obstacleNumber + " not found - cannot assign target");
                             }
                         }
                     } else {
-                        Log.w(TAG, "Missing 'value' object in image-rec JSON message");
+                        Log.w(TAG, "Missing image_id or obstacle_id in JSON value object");
                         if (listener != null) {
-                            listener.showToast("Invalid image recognition message: missing value object");
+                            listener.showToast("Invalid image recognition message: missing required fields");
                         }
                     }
-                }
-            } catch (JSONException e) {
-                Log.e(TAG, "Invalid JSON format in message: " + data, e);
-                if (listener != null) {
-                    listener.showToast("Invalid JSON format in message");
-                }
-            } catch (NumberFormatException e) {
-                Log.e(TAG, "Invalid obstacle_id number in JSON message: " + data, e);
-                if (listener != null) {
-                    listener.showToast("Invalid obstacle_id in image recognition message");
-                }
-            } catch (Exception e) {
-                Log.e(TAG, "Error parsing JSON image recognition message: " + data, e);
-                if (listener != null) {
-                    listener.showToast("Error processing image recognition message");
+                } else {
+                    Log.w(TAG, "Missing 'value' object in image-rec JSON message");
+                    if (listener != null) {
+                        listener.showToast("Invalid image recognition message: missing value object");
+                    }
                 }
             }
+        } catch (JSONException e) {
+            Log.e(TAG, "Invalid JSON format in message: " + data, e);
+            if (listener != null) {
+                listener.showToast("Invalid JSON format in message");
+            }
+        } catch (NumberFormatException e) {
+            Log.e(TAG, "Invalid obstacle_id number in JSON message: " + data, e);
+            if (listener != null) {
+                listener.showToast("Invalid obstacle_id in image recognition message");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error parsing JSON image recognition message: " + data, e);
+            if (listener != null) {
+                listener.showToast("Error processing image recognition message");
+            }
         }
+
     }
 
 
