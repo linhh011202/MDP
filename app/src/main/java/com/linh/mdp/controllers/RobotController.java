@@ -80,20 +80,39 @@ public class RobotController {
         }
     }
 
+    // Helpers for continuous drag reuse (shared with obstacle smooth drag)
+    private void beginContinuousDragIfSupported() {
+        if (gridAdapter != null && !gridAdapter.isInContinuousDrag()) {
+            gridAdapter.beginContinuousDrag();
+        }
+    }
+    private void endContinuousDragIfActive() {
+        if (gridAdapter != null && gridAdapter.isInContinuousDrag()) {
+            gridAdapter.endContinuousDrag();
+        }
+    }
+
     public void moveRobotForward() {
         if (gridAdapter != null && gridAdapter.hasRobot()) {
             int dRow = 0, dCol = 0;
             switch (gridAdapter.getRobotOrientation()) {
-                case 0: dRow = -1; dCol = 0; break; // North
-                case 1: dRow = 0; dCol = 1; break;  // East
-                case 2: dRow = 1; dCol = 0; break;  // South
-                case 3: dRow = 0; dCol = -1; break; // West
+                case 0: dRow = -1;
+                    break; // North
+                case 1:
+                    dCol = 1; break;  // East
+                case 2: dRow = 1;
+                    break;  // South
+                case 3:
+                    dCol = -1; break; // West
             }
+            // Attempt the move
             boolean moved = gridAdapter.moveRobot(dRow, dCol);
-            updateRobotStatusText();
-
-            // Send forward command via Bluetooth
-            sendBluetoothCommand("f");
+            if (moved) {
+                updateRobotStatusText();
+                sendBluetoothCommand("f");
+            } else {
+                showToast("Blocked - cannot move forward");
+            }
         } else {
             showToast("Place the robot first");
         }
@@ -103,16 +122,22 @@ public class RobotController {
         if (gridAdapter != null && gridAdapter.hasRobot()) {
             int dRow = 0, dCol = 0;
             switch (gridAdapter.getRobotOrientation()) {
-                case 0: dRow = 1; dCol = 0; break;   // opposite of North
-                case 1: dRow = 0; dCol = -1; break;  // opposite of East
-                case 2: dRow = -1; dCol = 0; break;  // opposite of South
-                case 3: dRow = 0; dCol = 1; break;   // opposite of West
+                case 0: dRow = 1;
+                    break;   // opposite of North
+                case 1:
+                    dCol = -1; break;  // opposite of East
+                case 2: dRow = -1;
+                    break;  // opposite of South
+                case 3:
+                    dCol = 1; break;   // opposite of West
             }
             boolean moved = gridAdapter.moveRobot(dRow, dCol);
-            updateRobotStatusText();
-
-            // Send reverse command via Bluetooth
-            sendBluetoothCommand("r");
+            if (moved) {
+                updateRobotStatusText();
+                sendBluetoothCommand("r");
+            } else {
+                showToast("Blocked - cannot move reverse");
+            }
         } else {
             showToast("Place the robot first");
         }
@@ -150,6 +175,7 @@ public class RobotController {
     public void setPlacingRobotMode(boolean enabled) {
         isPlacingRobotMode = enabled;
         if (enabled) {
+            beginContinuousDragIfSupported();
             // Clear any temp preview first
             if (gridAdapter != null) gridAdapter.clearTemporaryRobotPreview();
             if (placeRobotButton != null) {
@@ -157,10 +183,9 @@ public class RobotController {
             }
             showToast("Drag on grid to preview the robot, then tap Confirm");
         } else {
-            // Clear preview when exiting
+            endContinuousDragIfActive();
             if (gridAdapter != null) gridAdapter.clearTemporaryRobotPreview();
             if (placeRobotButton != null) {
-                // Always show "Place Robot (3x3)" when not in placement mode
                 placeRobotButton.setText("Place Robot (3x3)");
             }
             if (!suppressCancelToastOnce) {
@@ -180,6 +205,7 @@ public class RobotController {
     // Called continuously during grid touch-drag
     public boolean previewRobotAt(int row, int col) {
         if (!isPlacingRobotMode || gridAdapter == null) return false;
+        beginContinuousDragIfSupported();
         boolean shown = gridAdapter.showTemporaryRobotAtCenter(row, col);
         updateConfirmButtonVisibility();
         if (robotStatusText != null && shown) {
@@ -201,6 +227,7 @@ public class RobotController {
                 robotStatusText.setText("Robot at (" + displayRow + ", " + displayCol + ") placed");
             }
             suppressCancelToastOnce = true; // avoid showing cancel toast when exiting after confirm
+            endContinuousDragIfActive();
             setPlacingRobotMode(false);
             updateRobotButtonsState();
         } else {
@@ -278,6 +305,7 @@ public class RobotController {
 
     public void exitPlacementMode() {
         if (isPlacingRobotMode) {
+            endContinuousDragIfActive();
             setPlacingRobotMode(false);
         }
     }

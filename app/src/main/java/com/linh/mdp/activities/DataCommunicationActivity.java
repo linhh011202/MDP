@@ -162,7 +162,8 @@ public class DataCommunicationActivity extends AppCompatActivity implements
             findViewById(R.id.eastBorderButton),
             findViewById(R.id.westBorderButton),
             findViewById(R.id.obstacleActionStatus),
-            findViewById(R.id.borderDirectionSection)
+            findViewById(R.id.borderDirectionSection),
+            findViewById(R.id.sendObstaclesButton)
         );
 
         // Wire the dedicated Remove Obstacle button to enter remove mode (reveals Clear All)
@@ -194,9 +195,7 @@ public class DataCommunicationActivity extends AppCompatActivity implements
                 }
 
                 // Handle obstacle operations
-                if (obstacleController.handleObstacleClick(row, col)) {
-                    return; // Click was handled by obstacle controller
-                }
+                obstacleController.handleObstacleClick(row, col);// Click was handled by obstacle controller
             }
         });
 
@@ -214,15 +213,6 @@ public class DataCommunicationActivity extends AppCompatActivity implements
             int position = gridView.pointToPosition(x, y);
             switch (event.getActionMasked()) {
                 case MotionEvent.ACTION_DOWN:
-                    preventParentIntercept(v, true);
-                    if (position != GridView.INVALID_POSITION) {
-                        int row = position / gridAdapter.getGridSize();
-                        int col = position % gridAdapter.getGridSize();
-                        if (col > 0 && row >= 0 && row < gridAdapter.getGridSize() - 1) {
-                            robotController.previewRobotAt(row, col);
-                        }
-                    }
-                    return true;
                 case MotionEvent.ACTION_MOVE:
                     preventParentIntercept(v, true);
                     if (position != GridView.INVALID_POSITION) {
@@ -263,7 +253,7 @@ public class DataCommunicationActivity extends AppCompatActivity implements
         }
 
         // Handle permanent obstacle dragging
-        return handlePermanentObstacleDrag(v, event, position);
+        return handlePermanentObstacleDrag();
     }
 
     private boolean handleTemporaryObstacleDrag(View v, MotionEvent event, int position) {
@@ -318,20 +308,10 @@ public class DataCommunicationActivity extends AppCompatActivity implements
         return (x < left || x >= right || y < top || y >= bottom);
     }
 
-    private boolean handlePermanentObstacleDrag(View v, MotionEvent event, int position) {
+    private boolean handlePermanentObstacleDrag() {
         // Individual obstacle removal has been removed - only clear all obstacles is available
         // This method is kept for compatibility but does nothing
         return false;
-    }
-
-    private boolean isDropOutsideMap(int position) {
-        if (position == GridView.INVALID_POSITION) {
-            return true; // dropped outside GridView entirely
-        }
-        int row = position / gridAdapter.getGridSize();
-        int col = position % gridAdapter.getGridSize();
-        // Dropped on headers is considered outside map area
-        return !(col > 0 && row >= 0 && row < gridAdapter.getGridSize() - 1);
     }
 
     private void preventParentIntercept(View v, boolean prevent) {
@@ -421,7 +401,7 @@ public class DataCommunicationActivity extends AppCompatActivity implements
     public void onDataReceived(String data) {
         runOnUiThread(() -> {
             // Notify data communication manager
-            dataCommunicationManager.onDataReceived(data);
+            dataCommunicationManager.onDataReceived();
 
             // Parse and handle different types of messages
             if (messageParser != null) {
@@ -497,7 +477,7 @@ public class DataCommunicationActivity extends AppCompatActivity implements
     // ObstacleController.OnObstacleModeChangeListener implementation
     @Override
     public void onObstacleModeChanged(boolean enabled) {
-        fabMenuController.updateObstacleButtonState(enabled);
+        fabMenuController.updateObstacleButtonState();
         if (enabled) {
             // Exit robot placement mode to avoid conflicts
             exitRobotMode();
@@ -519,11 +499,6 @@ public class DataCommunicationActivity extends AppCompatActivity implements
     @Override
     public void onRobotPositionParsed(int x, int y, String direction) {
         // Handle robot position update if needed
-    }
-
-    @Override
-    public void onImportantMessageReceived(String message) {
-        dataCommunicationManager.addImportantMessage(message);
     }
 
     @Override

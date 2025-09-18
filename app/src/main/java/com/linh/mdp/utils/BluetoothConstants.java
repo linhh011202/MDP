@@ -29,17 +29,8 @@ public final class BluetoothConstants {
     public static final long CONNECTION_TIMEOUT_MS = 60000; // 60 seconds
     public static final long DISCOVERY_TIMEOUT_MS = 12000;  // 12 seconds
 
-    // Maximum retry attempts for connection
-    public static final int MAX_CONNECTION_RETRIES = 3;
-
     // Delay between retry attempts in milliseconds
     public static final long RETRY_DELAY_MS = 2000; // 2 seconds
-
-    // Buffer size for data communication
-    public static final int BUFFER_SIZE = 1024;
-
-    // Service name for server socket
-    public static final String SERVICE_NAME = "BluetoothChatService";
 
     // Intent extras
     public static final String EXTRA_DEVICE_NAME = "DEVICE_NAME";

@@ -13,8 +13,6 @@ import androidx.appcompat.widget.AppCompatTextView;
 public class BorderableCell extends AppCompatTextView {
 
     private Paint borderPaint;
-    private int borderColor = 0;
-    private int borderWidth = 8; // Border thickness in pixels
     private boolean showNorthBorder = false;
     private boolean showSouthBorder = false;
     private boolean showEastBorder = false;
@@ -41,28 +39,6 @@ public class BorderableCell extends AppCompatTextView {
         borderPaint.setAntiAlias(true);
     }
 
-    public void setBorder(String direction, int color) {
-        clearBorders();
-        borderColor = color;
-        borderPaint.setColor(color);
-
-        switch (direction.toUpperCase()) {
-            case "N":
-                showNorthBorder = true;
-                break;
-            case "S":
-                showSouthBorder = true;
-                break;
-            case "E":
-                showEastBorder = true;
-                break;
-            case "W":
-                showWestBorder = true;
-                break;
-        }
-        invalidate();
-    }
-
     public void setBorderDirection(String direction) {
         clearBorders();
         if (direction != null && !direction.isEmpty()) {
@@ -82,7 +58,6 @@ public class BorderableCell extends AppCompatTextView {
     }
 
     public void setBorderColor(int color) {
-        borderColor = color;
         borderPaint.setColor(color);
         invalidate();
     }
@@ -107,6 +82,8 @@ public class BorderableCell extends AppCompatTextView {
             int width = getWidth();
             int height = getHeight();
 
+            // Border thickness in pixels
+            int borderWidth = 8;
             if (showNorthBorder) {
                 // Draw top border
                 canvas.drawRect(0, 0, width, borderWidth, borderPaint);

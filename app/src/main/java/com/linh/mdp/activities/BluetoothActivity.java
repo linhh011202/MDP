@@ -33,6 +33,10 @@ public class BluetoothActivity extends AppCompatActivity implements BluetoothCon
     private ArrayAdapter<String> devicesAdapter;
     private List<BluetoothDevice> devices;
 
+    private enum RoleMode { CLIENT, SERVER }
+    private RoleMode currentMode = RoleMode.CLIENT;
+    private Button modeToggleButton;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -46,19 +50,55 @@ public class BluetoothActivity extends AppCompatActivity implements BluetoothCon
         statusText = findViewById(R.id.statusText);
         scanButton = findViewById(R.id.scanButton);
         ListView devicesList = findViewById(R.id.devicesList);
+        modeToggleButton = findViewById(R.id.modeToggleButton);
 
         devices = new ArrayList<>();
         devicesAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, new ArrayList<>());
         devicesList.setAdapter(devicesAdapter);
 
         scanButton.setOnClickListener(v -> scanForDevices());
+        modeToggleButton.setOnClickListener(v -> toggleMode());
 
         devicesList.setOnItemClickListener((parent, view, position, id) -> {
             if (position < devices.size()) {
                 BluetoothDevice device = devices.get(position);
-                waitForConnectionFromDevice(device);
+                if (PermissionUtils.checkAndRequestBluetoothPermissions(this)) {
+                    Toast.makeText(this, "Permissions required", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                if (currentMode == RoleMode.CLIENT) {
+                    startClientConnection(device);
+                } else {
+                    startServerWait(device);
+                }
             }
         });
+
+        devicesList.setOnItemLongClickListener(null);
+    }
+
+    private void toggleMode() {
+        if (bluetoothHelper != null && bluetoothHelper.isConnected()) {
+            Toast.makeText(this, "Disconnect first to change mode", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        currentMode = (currentMode == RoleMode.CLIENT) ? RoleMode.SERVER : RoleMode.CLIENT;
+        updateModeUI();
+    }
+
+    private void updateModeUI() {
+        if (modeToggleButton == null) return;
+        if (currentMode == RoleMode.CLIENT) {
+            modeToggleButton.setText("Mode: Client");
+            if (!bluetoothHelper.isConnected() && !bluetoothHelper.isWaitingForConnection()) {
+                statusText.setText("Client mode - tap device to connect");
+            }
+        } else {
+            modeToggleButton.setText("Mode: Server");
+            if (!bluetoothHelper.isConnected() && !bluetoothHelper.isWaitingForConnection()) {
+                statusText.setText("Server mode - tap device to wait for incoming connection");
+            }
+        }
     }
 
     private void setupBluetooth() {
@@ -72,6 +112,7 @@ public class BluetoothActivity extends AppCompatActivity implements BluetoothCon
         }
 
         updateUI();
+        updateModeUI();
     }
 
     private void updateUI() {
@@ -95,7 +136,7 @@ public class BluetoothActivity extends AppCompatActivity implements BluetoothCon
     private void scanForDevices() {
         Log.d(TAG, "scanForDevices() called");
 
-        if (!PermissionUtils.checkAndRequestBluetoothPermissions(this)) {
+        if (PermissionUtils.checkAndRequestBluetoothPermissions(this)) {
             statusText.setText("Please grant Bluetooth permissions");
             return;
         }
@@ -113,7 +154,7 @@ public class BluetoothActivity extends AppCompatActivity implements BluetoothCon
         List<BluetoothDevice> pairedDevices = bluetoothHelper.getPairedDevices();
         Log.d(TAG, "Found " + pairedDevices.size() + " paired devices");
 
-        if (pairedDevices.size() > 0) {
+        if (!pairedDevices.isEmpty()) {
             for (BluetoothDevice device : pairedDevices) {
                 devices.add(device);
                 String deviceName = getDeviceName(device);
@@ -168,21 +209,21 @@ public class BluetoothActivity extends AppCompatActivity implements BluetoothCon
         }
     }
 
-    private void waitForConnectionFromDevice(BluetoothDevice device) {
-        if (!PermissionUtils.checkAndRequestBluetoothPermissions(this)) {
-            Toast.makeText(this, "Permissions required to wait for connection", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        if (bluetoothHelper != null) {
-            bluetoothHelper.cleanup();
-        }
-
+    private void startClientConnection(BluetoothDevice device) {
+        if (bluetoothHelper != null) bluetoothHelper.cleanup();
         bluetoothHelper = new BluetoothHelper(this);
         bluetoothHelper.setConnectionListener(this);
-
         String deviceName = getDeviceName(device);
-        statusText.setText("Preparing to wait for connection from " + deviceName);
+        statusText.setText("Connecting to " + deviceName + " as client...");
+        bluetoothHelper.connectToDevice(device);
+    }
+
+    private void startServerWait(BluetoothDevice device) {
+        if (bluetoothHelper != null) bluetoothHelper.cleanup();
+        bluetoothHelper = new BluetoothHelper(this);
+        bluetoothHelper.setConnectionListener(this);
+        String deviceName = getDeviceName(device);
+        statusText.setText("Waiting for connection from " + deviceName + " (server mode)...");
         bluetoothHelper.waitForConnectionFromDevice(device);
     }
 
@@ -227,8 +268,12 @@ public class BluetoothActivity extends AppCompatActivity implements BluetoothCon
     public void onWaitingForConnection(BluetoothDevice device) {
         runOnUiThread(() -> {
             String deviceName = getDeviceName(device);
-            statusText.setText("Waiting for " + deviceName + " to connect... (60 seconds timeout)");
-            Toast.makeText(this, "Ready to receive connection from " + deviceName, Toast.LENGTH_LONG).show();
+            if (currentMode == RoleMode.SERVER) {
+                statusText.setText("Server mode: waiting for " + deviceName + "... (timeout 60s)");
+            } else {
+                statusText.setText("(Unexpected) Waiting for " + deviceName + "..." );
+            }
+            Toast.makeText(this, "Waiting for " + deviceName, Toast.LENGTH_LONG).show();
             updateUI();
         });
     }
@@ -292,6 +337,7 @@ public class BluetoothActivity extends AppCompatActivity implements BluetoothCon
         if (bluetoothHelper != null) {
             bluetoothHelper.setConnectionListener(this);
             updateUI();
+            updateModeUI();
         }
     }
 }

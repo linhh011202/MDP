@@ -39,13 +39,27 @@
             android:paddingTop="12dp"
             android:paddingBottom="12dp" />
 
+        <Button
+            android:id="@+id/modeToggleButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:text="Mode: Client"
+            android:backgroundTint="#2196F3"
+            android:textColor="@android:color/white"
+            android:paddingLeft="24dp"
+            android:paddingRight="24dp"
+            android:paddingTop="12dp"
+            android:paddingBottom="12dp" />
+
     </LinearLayout>
 
     <TextView
+        android:id="@+id/deviceListHeader"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="8dp"
-        android:text="Available Devices (tap to connect):"
+        android:text="Available Devices (tap to act)"
         android:textSize="14sp"
         android:textStyle="bold"
         android:textColor="#333333" />
@@ -80,7 +94,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="1. Tap 'Scan Devices' to find available Bluetooth devices\n2. Tap on any device to prepare for connection\n3. Use your laptop app to connect to this Android device\n4. Once connected, you'll be taken to the communication screen"
+            android:text="1. Tap 'Scan Devices' to find available Bluetooth devices\n2. Toggle Mode to choose Client or Server\n3. Tap a device: in Client mode you connect; in Server mode you wait for it\n4. Once connected, you'll be taken to the communication screen"
             android:textSize="12sp"
             android:textColor="#666666"
             android:lineSpacingExtra="2dp" />

@@ -10,6 +10,10 @@ import android.widget.Toast;
 import com.linh.mdp.adapters.GridTableAdapter;
 import com.linh.mdp.bluetooth.BluetoothHelper;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
 /**
  * Controller class to handle obstacle-related operations
  */
@@ -30,6 +34,7 @@ public class ObstacleController {
     private Button southBorderButton;
     private Button eastBorderButton;
     private Button westBorderButton;
+    private Button sendObstaclesButton; // new send obstacles button
     private TextView obstacleActionStatus;
     private View borderDirectionSection;
 
@@ -47,13 +52,6 @@ public class ObstacleController {
     private int previewBorderRow = -1;
     private int previewBorderCol = -1;
     private boolean hasPreviewBorder = false;
-    private boolean hasShownRemovalHint = false;
-
-    // Dragging permanent obstacle state
-    private boolean isDraggingPermanentObstacle = false;
-    private int dragObstacleRow = -1;
-    private int dragObstacleCol = -1;
-
     private OnObstacleModeChangeListener obstacleListener;
 
     public interface OnObstacleModeChangeListener {
@@ -77,7 +75,8 @@ public class ObstacleController {
     public void setUIComponents(Button addObstacleButton, Button clearAllObstaclesButton,
                                Button confirmObstacleButton, Button cancelObstacleButton, Button setDirectionButton,
                                Button northBorderButton, Button southBorderButton, Button eastBorderButton, Button westBorderButton,
-                               TextView obstacleActionStatus, View borderDirectionSection) {
+                               TextView obstacleActionStatus, View borderDirectionSection,
+                               Button sendObstaclesButton) { // added param
         this.addObstacleButton = addObstacleButton;
         this.clearAllObstaclesButton = clearAllObstaclesButton;
         this.confirmObstacleButton = confirmObstacleButton;
@@ -89,6 +88,7 @@ public class ObstacleController {
         this.westBorderButton = westBorderButton;
         this.obstacleActionStatus = obstacleActionStatus;
         this.borderDirectionSection = borderDirectionSection;
+        this.sendObstaclesButton = sendObstaclesButton;
 
         setupClickListeners();
     }
@@ -125,6 +125,9 @@ public class ObstacleController {
         if (westBorderButton != null) {
             westBorderButton.setOnClickListener(v -> setBorder("W"));
         }
+        if (sendObstaclesButton != null) {
+            sendObstaclesButton.setOnClickListener(v -> sendAllObstacles());
+        }
     }
 
     public void toggleObstacleMode() {
@@ -140,15 +143,15 @@ public class ObstacleController {
     }
 
     public void setCurrentObstacleAction(String action) {
+        // If leaving add drag mode, end continuous drag
+        if (!"add".equals(action)) {
+            endContinuousDragIfActive();
+        }
         currentObstacleAction = action;
 
         // Clear any temporary obstacle when switching actions
         clearTemporaryObstacle();
 
-        // Reset any ongoing permanent drag when switching actions
-        isDraggingPermanentObstacle = false;
-        dragObstacleRow = -1;
-        dragObstacleCol = -1;
 
         // Clear any unconfirmed preview border when changing action
         clearPreviewBorderIfAny();
@@ -234,33 +237,34 @@ public class ObstacleController {
         }
     }
 
-    public boolean handleObstacleClick(int row, int col) {
-        if (!isObstacleModeEnabled || gridAdapter == null) return false;
+    public void handleObstacleClick(int row, int col) {
+        if (!isObstacleModeEnabled || gridAdapter == null) return;
 
         if (currentObstacleAction.isEmpty()) {
             showToast("Please select Add or Set Direction first");
-            return true;
+            return;
         }
 
         switch (currentObstacleAction) {
             case "add":
-                return handleAddObstacleClick(row, col);
+                handleAddObstacleClick(row, col);
+                return;
             case "direction":
-                return handleDirectionObstacleClick(row, col);
+                handleDirectionObstacleClick(row, col);
+                return;
             case "remove":
                 showToast("Press Clear All to remove obstacles");
-                return true;
+                return;
             default:
-                return true;
         }
     }
 
-    private boolean handleAddObstacleClick(int row, int col) {
+    private void handleAddObstacleClick(int row, int col) {
         if (isDraggingObstacle) {
             // Move the temporary obstacle
             if (gridAdapter.isCellObstacle(row, col) && !gridAdapter.isCellTemporaryObstacle(row, col)) {
                 showToast("Cell already has a permanent obstacle");
-                return true;
+                return;
             }
 
             // Clear previous temporary obstacle properly
@@ -296,7 +300,7 @@ public class ObstacleController {
             } finally {
                 gridAdapter.endBatchUpdates();
             }
-            updateObstacleCoordinate(row, col);
+            updateObstacleCoordinate();
 
             if (obstacleListener != null) {
                 obstacleListener.updateGridTableHeader();
@@ -307,7 +311,7 @@ public class ObstacleController {
             // Start dragging mode
             if (gridAdapter.isCellObstacle(row, col)) {
                 showToast("Cell already has an obstacle");
-                return true;
+                return;
             }
 
             temporaryObstacleRow = row;
@@ -318,6 +322,9 @@ public class ObstacleController {
 
             selectedDirection = "";
 
+            // Begin low-latency continuous drag updates
+            beginContinuousDragIfSupported();
+
             gridAdapter.beginBatchUpdates();
             try {
                 gridAdapter.updateCell(row, col, "?", Color.parseColor("#FF9800"));
@@ -325,15 +332,14 @@ public class ObstacleController {
             } finally {
                 gridAdapter.endBatchUpdates();
             }
-            updateObstacleCoordinate(row, col);
+            updateObstacleCoordinate();
 
             showToast("Obstacle placed - Click another cell to move or Confirm to add");
         }
 
-        return true;
     }
 
-    private boolean handleDirectionObstacleClick(int row, int col) {
+    private void handleDirectionObstacleClick(int row, int col) {
         if (gridAdapter.isCellObstacle(row, col) && !gridAdapter.isCellRobot(row, col) && !gridAdapter.isCellTemporaryObstacle(row, col)) {
             // If there is an unconfirmed preview on another cell, clear it
             if (hasPreviewBorder && (previewBorderRow != row || previewBorderCol != col)) {
@@ -354,11 +360,6 @@ public class ObstacleController {
             // Highlight this selected obstacle in yellow
             gridAdapter.highlightSelectedObstacle(row, col);
 
-            int obstacleNumber = gridAdapter.getObstacleNumber(row, col);
-            int displayRow = gridAdapter.getGridSize() - 2 - row;
-            int displayCol = col - 1;
-
-
             // Show cancel/confirm; confirm enabled only when a direction picked
             if (cancelObstacleButton != null) {
                 cancelObstacleButton.setVisibility(View.VISIBLE);
@@ -370,7 +371,6 @@ public class ObstacleController {
         } else {
             showToast("Select a valid obstacle cell");
         }
-        return true;
     }
 
     private void confirmObstacleAction() {
@@ -407,6 +407,9 @@ public class ObstacleController {
 
         // Clear the temporary row/column highlight
         gridAdapter.clearTempRowColHighlight();
+
+        // End continuous drag session
+        endContinuousDragIfActive();
 
         // Reset the dragging state completely
         resetTemporaryObstacleState();
@@ -466,6 +469,7 @@ public class ObstacleController {
     }
 
     public void cancelObstacleAction() {
+        endContinuousDragIfActive();
         clearTemporaryObstacle();
         clearPreviewBorderIfAny();
 
@@ -561,7 +565,7 @@ public class ObstacleController {
         }
     }
 
-    private void updateObstacleCoordinate(int row, int col) {
+    private void updateObstacleCoordinate() {
 
         if (confirmObstacleButton != null) {
             confirmObstacleButton.setVisibility(View.VISIBLE);
@@ -608,6 +612,7 @@ public class ObstacleController {
             gridAdapter.clearTempRowColHighlight();
         }
 
+        endContinuousDragIfActive();
         resetTemporaryObstacleState();
         updateConfirmButtonState();
     }
@@ -673,6 +678,71 @@ public class ObstacleController {
         }
     }
 
+    // Build and send obstacles JSON with mode "0"
+    private void sendAllObstacles() {
+        if (gridAdapter == null) {
+            showToast("Grid not ready");
+            return;
+        }
+        if (bluetoothHelper == null || !bluetoothHelper.isConnected()) {
+            showToast("Not connected");
+            return;
+        }
+        try {
+            JSONArray obstaclesArray = new JSONArray();
+            int size = gridAdapter.getGridSize();
+            for (int row = 0; row < size - 1; row++) { // data rows only
+                for (int col = 1; col < size; col++) { // data cols only
+                    if (gridAdapter.isCellPermanentObstacle(row, col) && !gridAdapter.isCellRobot(row, col)) {
+                        int id = gridAdapter.getObstacleNumber(row, col);
+                        if (id <= 0) continue; // skip if id unresolved
+                        int x = col - 1; // display col
+                        int y = (size - 2) - row; // display row
+                        String dir = gridAdapter.getCellBorderDirection(row, col);
+                        int d = mapDirectionToInt(dir); // -1 if not set
+                        JSONObject obj = new JSONObject();
+                        obj.put("x", x);
+                        obj.put("y", y);
+                        obj.put("id", id);
+                        obj.put("d", d);
+                        obstaclesArray.put(obj);
+                    }
+                }
+            }
+            JSONObject value = new JSONObject();
+            value.put("obstacles", obstaclesArray);
+            value.put("mode", "0"); // always string "0"
+            JSONObject root = new JSONObject();
+            root.put("cat", "obstacles");
+            root.put("value", value);
+
+            String payload = root.toString();
+            bluetoothHelper.sendData(payload);
+
+            if (obstacleListener != null) {
+                String timestamp = obstacleListener.getCurrentTimestamp();
+                String formattedMessage = "[" + timestamp + "] SENT: " + payload + "\n";
+                obstacleListener.appendToReceivedData(formattedMessage);
+                obstacleListener.appendToSentData(formattedMessage);
+            }
+
+            showToast("Sent obstacles (" + obstaclesArray.length() + ")");
+        } catch (JSONException e) {
+            showToast("Failed to build JSON");
+        }
+    }
+
+    private int mapDirectionToInt(String dir) {
+        if (dir == null) return 8; // SKIP when not set
+        switch (dir.toUpperCase()) {
+            case "N": return 0;
+            case "E": return 2;
+            case "S": return 4;
+            case "W": return 6;
+            default: return 8; // SKIP for unknown
+        }
+    }
+
     private void showToast(String message) {
         Toast.makeText(context, message, Toast.LENGTH_SHORT).show();
     }
@@ -681,34 +751,16 @@ public class ObstacleController {
     public boolean isObstacleModeEnabled() { return isObstacleModeEnabled; }
     public String getCurrentObstacleAction() { return currentObstacleAction; }
     public boolean isDraggingObstacle() { return isDraggingObstacle; }
-    public boolean isDraggingPermanentObstacle() { return isDraggingPermanentObstacle; }
+
     public int getTemporaryObstacleRow() { return temporaryObstacleRow; }
     public int getTemporaryObstacleCol() { return temporaryObstacleCol; }
     public int getPreviousTemporaryRow() { return previousTemporaryRow; }
     public int getPreviousTemporaryCol() { return previousTemporaryCol; }
-    public String getSelectedDirection() { return selectedDirection; }
-
-    public void setDragObstaclePosition(int row, int col) {
-        this.dragObstacleRow = row;
-        this.dragObstacleCol = col;
-    }
-
-    public int getDragObstacleRow() { return dragObstacleRow; }
-    public int getDragObstacleCol() { return dragObstacleCol; }
-
-    public void setDraggingPermanentObstacle(boolean dragging) {
-        this.isDraggingPermanentObstacle = dragging;
-    }
-
-    public void showRemovalHintIfNeeded() {
-        if (!hasShownRemovalHint) {
-            showToast("Dragging the obstacle outside the map area will remove the obstacle from your map.");
-            hasShownRemovalHint = true;
-        }
-    }
 
     public void updateTemporaryPosition(int row, int col) {
         if (isDraggingObstacle && "add".equals(currentObstacleAction)) {
+            // Ensure continuous drag loop is active
+            beginContinuousDragIfSupported();
             // Update temporary obstacle position during drag
             if (row != previousTemporaryRow || col != previousTemporaryCol) {
                 // Clear previous temp cell visuals and border
@@ -733,7 +785,7 @@ public class ObstacleController {
                 } finally {
                     gridAdapter.endBatchUpdates();
                 }
-                updateObstacleCoordinate(row, col);
+                updateObstacleCoordinate();
 
                 if (obstacleListener != null) {
                     obstacleListener.updateGridTableHeader();
@@ -742,13 +794,9 @@ public class ObstacleController {
         }
     }
 
-    // Public API for external triggers (e.g., Activity button) to clear all obstacles and reset UI
-    public void removeAllObstacles() {
-        clearAllObstaclesAndResetUI();
-    }
-
     // New public API: remove the temporary obstacle when dragged outside the map
     public void removeTemporaryObstacleFromGrid() {
+        endContinuousDragIfActive();
         // Keep current action (e.g., Add) but clear temp visuals and state
         clearTemporaryObstacle();
         if ("add".equals(currentObstacleAction)) {
@@ -763,6 +811,7 @@ public class ObstacleController {
 
     // Consolidated helper to clear all obstacles and reset related UI/state
     private void clearAllObstaclesAndResetUI() {
+        endContinuousDragIfActive();
         clearTemporaryObstacle();
         clearPreviewBorderIfAny();
         if (selectedObstacleRow != -1 && selectedObstacleCol != -1 && gridAdapter != null) {
@@ -782,5 +831,18 @@ public class ObstacleController {
         if (clearAllObstaclesButton != null) clearAllObstaclesButton.setVisibility(View.GONE);
         updateConfirmButtonState();
         if (obstacleListener != null) obstacleListener.updateGridTableHeader();
+    }
+
+    // Helpers to manage continuous drag lifecycle
+    private void beginContinuousDragIfSupported() {
+        if (gridAdapter != null && !gridAdapter.isInContinuousDrag()) {
+            gridAdapter.beginContinuousDrag();
+        }
+    }
+
+    private void endContinuousDragIfActive() {
+        if (gridAdapter != null && gridAdapter.isInContinuousDrag()) {
+            gridAdapter.endContinuousDrag();
+        }
     }
 }

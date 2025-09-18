@@ -4,6 +4,9 @@ import android.util.Log;
 
 import com.linh.mdp.adapters.GridTableAdapter;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
 /**
  * Parser class to handle different types of incoming Bluetooth messages
  */
@@ -11,14 +14,14 @@ public class MessageParser {
 
     private static final String TAG = "MessageParser";
 
-    private GridTableAdapter gridAdapter;
-    private OnMessageParsedListener listener;
+    private final GridTableAdapter gridAdapter;
+    private final OnMessageParsedListener listener;
 
     public interface OnMessageParsedListener {
         void onRobotCommandParsed(String command);
         void onTargetMessageParsed(int obstacleNumber, String targetId);
         void onRobotPositionParsed(int x, int y, String direction);
-        void onImportantMessageReceived(String message);
+
         void showToast(String message);
         String getCurrentTimestamp();
         void appendToReceivedData(String message);
@@ -85,10 +88,14 @@ public class MessageParser {
         if (gridAdapter.hasRobot()) {
             int dRow = 0, dCol = 0;
             switch (gridAdapter.getRobotOrientation()) {
-                case 0: dRow = -1; dCol = 0; break; // North
-                case 1: dRow = 0; dCol = 1; break;  // East
-                case 2: dRow = 1; dCol = 0; break;  // South
-                case 3: dRow = 0; dCol = -1; break; // West
+                case 0: dRow = -1;
+                    break; // North
+                case 1:
+                    dCol = 1; break;  // East
+                case 2: dRow = 1;
+                    break;  // South
+                case 3:
+                    dCol = -1; break; // West
             }
             boolean moved = gridAdapter.moveRobot(dRow, dCol);
             if (listener != null) {
@@ -104,10 +111,14 @@ public class MessageParser {
         if (gridAdapter.hasRobot()) {
             int dRow = 0, dCol = 0;
             switch (gridAdapter.getRobotOrientation()) {
-                case 0: dRow = 1; dCol = 0; break;   // opposite of North
-                case 1: dRow = 0; dCol = -1; break;  // opposite of East
-                case 2: dRow = -1; dCol = 0; break;  // opposite of South
-                case 3: dRow = 0; dCol = 1; break;   // opposite of West
+                case 0: dRow = 1;
+                    break;   // opposite of North
+                case 1:
+                    dCol = -1; break;  // opposite of East
+                case 2: dRow = -1;
+                    break;  // opposite of South
+                case 3:
+                    dCol = 1; break;   // opposite of West
             }
             boolean moved = gridAdapter.moveRobot(dRow, dCol);
             if (listener != null) {
@@ -144,7 +155,7 @@ public class MessageParser {
     }
 
     /**
-     * Parse and handle TARGET messages in the format: "TARGET, <Obstacle Number>, <Target ID>"
+     * Parse and handle TARGET messages in JSON format: {"cat": "image-rec", "value": {"image_id": "A", "obstacle_id": "1"}}
      */
     public void parseAndHandleTargetMessages(String data) {
         if (data == null || gridAdapter == null) return;
@@ -152,60 +163,82 @@ public class MessageParser {
         String trimmed = data.trim();
         if (trimmed.isEmpty()) return;
 
-        // Check if this is a TARGET message
-        if (trimmed.toUpperCase().startsWith("TARGET")) {
+        // Check if this is a JSON message
+        if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
             try {
-                // Split by comma and clean up whitespace
-                String[] parts = trimmed.split(",");
-                if (parts.length >= 3) {
-                    String command = parts[0].trim().toUpperCase();
-                    String obstacleNumberStr = parts[1].trim();
-                    String targetId = parts[2].trim();
+                JSONObject jsonObject = new JSONObject(trimmed);
 
-                    // Validate that we have the TARGET command
-                    if ("TARGET".equals(command)) {
-                        // Parse obstacle number
-                        int obstacleNumber = Integer.parseInt(obstacleNumberStr);
+                // Check if this is an image-rec message
+                if (jsonObject.has("cat") && "image-rec".equals(jsonObject.getString("cat"))) {
 
-                        // Apply target styling to the obstacle
-                        boolean success = gridAdapter.setObstacleAsTarget(obstacleNumber, targetId);
+                    // Extract the value object
+                    if (jsonObject.has("value")) {
+                        JSONObject valueObject = jsonObject.getJSONObject("value");
 
-                        if (success) {
-                            Log.d(TAG, "Target assigned: Obstacle " + obstacleNumber + " -> Target ID: " + targetId);
+                        // Extract image_id and obstacle_id
+                        if (valueObject.has("image_id") && valueObject.has("obstacle_id")) {
+                            String imageId = valueObject.getString("image_id");
+                            String obstacleIdStr = valueObject.getString("obstacle_id");
 
-                            if (listener != null) {
-                                listener.onTargetMessageParsed(obstacleNumber, targetId);
-                                listener.showToast("Obstacle " + obstacleNumber + " marked as target: " + targetId);
+                            // Parse obstacle number
+                            int obstacleNumber = Integer.parseInt(obstacleIdStr);
 
-                                // Add to received data display
-                                String timestamp = listener.getCurrentTimestamp();
-                                String formattedMessage = "[" + timestamp + "] TARGET: Obstacle " + obstacleNumber + " -> " + targetId + "\n";
-                                listener.appendToReceivedData(formattedMessage);
+                            // Apply target styling to the obstacle using image_id as the target ID
+                            boolean success = gridAdapter.setObstacleAsTarget(obstacleNumber, imageId);
+
+                            if (success) {
+                                Log.d(TAG, "Target assigned: Obstacle " + obstacleNumber + " -> Image ID: " + imageId);
+
+                                if (listener != null) {
+                                    listener.onTargetMessageParsed(obstacleNumber, imageId);
+                                    listener.showToast("Obstacle " + obstacleNumber + " marked as target: " + imageId);
+
+                                    // Add to received data display
+                                    String timestamp = listener.getCurrentTimestamp();
+                                    String formattedMessage = "[" + timestamp + "] IMAGE-REC: Obstacle " + obstacleNumber + " -> " + imageId + "\n";
+                                    listener.appendToReceivedData(formattedMessage);
+                                }
+                            } else {
+                                Log.w(TAG, "Failed to assign target: Obstacle " + obstacleNumber + " not found");
+                                if (listener != null) {
+                                    listener.showToast("Obstacle " + obstacleNumber + " not found - cannot assign target");
+                                }
                             }
                         } else {
-                            Log.w(TAG, "Failed to assign target: Obstacle " + obstacleNumber + " not found");
+                            Log.w(TAG, "Missing image_id or obstacle_id in JSON value object");
                             if (listener != null) {
-                                listener.showToast("Obstacle " + obstacleNumber + " not found - cannot assign target");
+                                listener.showToast("Invalid image recognition message: missing required fields");
                             }
+                        }
+                    } else {
+                        Log.w(TAG, "Missing 'value' object in image-rec JSON message");
+                        if (listener != null) {
+                            listener.showToast("Invalid image recognition message: missing value object");
                         }
                     }
                 }
-            } catch (NumberFormatException e) {
-                Log.e(TAG, "Invalid obstacle number in TARGET message: " + data, e);
+            } catch (JSONException e) {
+                Log.e(TAG, "Invalid JSON format in message: " + data, e);
                 if (listener != null) {
-                    listener.showToast("Invalid TARGET message format");
+                    listener.showToast("Invalid JSON format in message");
+                }
+            } catch (NumberFormatException e) {
+                Log.e(TAG, "Invalid obstacle_id number in JSON message: " + data, e);
+                if (listener != null) {
+                    listener.showToast("Invalid obstacle_id in image recognition message");
                 }
             } catch (Exception e) {
-                Log.e(TAG, "Error parsing TARGET message: " + data, e);
+                Log.e(TAG, "Error parsing JSON image recognition message: " + data, e);
                 if (listener != null) {
-                    listener.showToast("Error processing TARGET message");
+                    listener.showToast("Error processing image recognition message");
                 }
             }
         }
     }
 
+
     /**
-     * Parse and handle ROBOT messages in the format: "ROBOT, <x>, <y>, <direction>"
+     * Parse and handle ROBOT messages in JSON format: {"cat": "location", "value": "{\"x\": 1, \"y\": 1, \"d\": 0}"}
      */
     public void parseAndHandleRobotMessages(String data) {
         if (data == null || gridAdapter == null) return;
@@ -213,67 +246,113 @@ public class MessageParser {
         String trimmed = data.trim();
         if (trimmed.isEmpty()) return;
 
-        // Check if this is a ROBOT message
-        if (trimmed.toUpperCase().startsWith("ROBOT")) {
-            try {
-                // Split by comma and clean up whitespace
-                String[] parts = trimmed.split(",");
-                if (parts.length >= 4) {
-                    String command = parts[0].trim().toUpperCase();
-                    String xStr = parts[1].trim();
-                    String yStr = parts[2].trim();
-                    String direction = parts[3].trim();
+        // Check if this is a JSON message
+        try {
+            JSONObject jsonObject = new JSONObject(trimmed);
 
-                    // Validate that we have the ROBOT command
-                    if ("ROBOT".equals(command)) {
-                        // Parse coordinates
-                        int x = Integer.parseInt(xStr);
-                        int y = Integer.parseInt(yStr);
+            // Check if this is a location message
+            if (jsonObject.has("cat") && "location".equals(jsonObject.getString("cat"))) {
+
+                // Extract the value - it can be either a JSON object or a JSON string
+                if (jsonObject.has("value")) {
+                    JSONObject valueObject;
+
+                    // Check if value is a string (nested JSON) or already an object
+                    Object valueRaw = jsonObject.get("value");
+                    if (valueRaw instanceof String) {
+                        // Parse the nested JSON string
+                        String valueString = jsonObject.getString("value");
+                        valueObject = new JSONObject(valueString);
+                    } else {
+                        // Value is already a JSON object
+                        valueObject = jsonObject.getJSONObject("value");
+                    }
+
+                    // Extract x, y, and d (direction)
+                    if (valueObject.has("x") && valueObject.has("y") && valueObject.has("d")) {
+                        int x = valueObject.getInt("x");
+                        int y = valueObject.getInt("y");
+                        int direction = valueObject.getInt("d");
 
                         // Validate coordinates are in valid range (0-19)
                         if (x < 0 || x > 19 || y < 0 || y > 19) {
-                            Log.w(TAG, "Invalid coordinates in ROBOT message: (" + x + ", " + y + ")");
+                            Log.w(TAG, "Invalid coordinates in location message: (" + x + ", " + y + ")");
                             if (listener != null) {
                                 listener.showToast("Invalid robot coordinates: (" + x + ", " + y + ")");
                             }
                             return;
                         }
 
-                        // Update robot position and direction
-                        boolean success = gridAdapter.updateRobotPosition(x, y, direction);
+                        // Convert direction number to string
+                        String directionStr = convertDirectionToString(direction);
 
-                        if (success) {
-                            Log.d(TAG, "Robot updated: Position (" + x + ", " + y + ") facing " + direction);
+                        if (directionStr != null) {
+                            // Update robot position and direction
+                            boolean success = gridAdapter.updateRobotPosition(x, y, directionStr);
 
-                            if (listener != null) {
-                                listener.onRobotPositionParsed(x, y, direction);
-                                listener.showToast("Robot moved to (" + x + ", " + y + ") facing " + direction);
-                                listener.updateRobotStatusText();
+                            if (success) {
+                                Log.d(TAG, "Robot updated: Position (" + x + ", " + y + ") facing " + directionStr);
 
-                                // Add to received data display
-                                String timestamp = listener.getCurrentTimestamp();
-                                String formattedMessage = "[" + timestamp + "] ROBOT: Position (" + x + ", " + y + ") facing " + direction + "\n";
-                                listener.appendToReceivedData(formattedMessage);
+                                if (listener != null) {
+                                    listener.onRobotPositionParsed(x, y, directionStr);
+                                    listener.showToast("Robot moved to (" + x + ", " + y + ") facing " + directionStr);
+                                    listener.updateRobotStatusText();
+
+                                    // Add to received data display
+                                    String timestamp = listener.getCurrentTimestamp();
+                                    String formattedMessage = "[" + timestamp + "] LOCATION: Position (" + x + ", " + y + ") facing " + directionStr + "\n";
+                                    listener.appendToReceivedData(formattedMessage);
+                                }
+                            } else {
+                                Log.w(TAG, "Failed to update robot position: (" + x + ", " + y + ") facing " + directionStr);
+                                if (listener != null) {
+                                    listener.showToast("Cannot place robot at (" + x + ", " + y + ") - position blocked or invalid");
+                                }
                             }
                         } else {
-                            Log.w(TAG, "Failed to update robot position: (" + x + ", " + y + ") facing " + direction);
+                            Log.w(TAG, "Invalid direction value in location message: " + direction);
                             if (listener != null) {
-                                listener.showToast("Cannot place robot at (" + x + ", " + y + ") - position blocked or invalid");
+                                listener.showToast("Invalid direction value: " + direction);
                             }
                         }
+                    } else {
+                        Log.w(TAG, "Missing x, y, or d in JSON value object");
+                        if (listener != null) {
+                            listener.showToast("Invalid location message: missing required fields");
+                        }
+                    }
+                } else {
+                    Log.w(TAG, "Missing 'value' object in location JSON message");
+                    if (listener != null) {
+                        listener.showToast("Invalid location message: missing value object");
                     }
                 }
-            } catch (NumberFormatException e) {
-                Log.e(TAG, "Invalid coordinates in ROBOT message: " + data, e);
-                if (listener != null) {
-                    listener.showToast("Invalid ROBOT message format - coordinates must be numbers");
-                }
-            } catch (Exception e) {
-                Log.e(TAG, "Error parsing ROBOT message: " + data, e);
-                if (listener != null) {
-                    listener.showToast("Error processing ROBOT message");
-                }
             }
+        } catch (JSONException e) {
+            Log.e(TAG, "Invalid JSON format in location message: " + data, e);
+            if (listener != null) {
+                listener.showToast("Invalid JSON format in location message");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error parsing JSON location message: " + data, e);
+            if (listener != null) {
+                listener.showToast("Error processing location message");
+            }
+        }
+    }
+
+    /**
+     * Helper method to convert direction number to direction string
+     * @param direction 0=North, 2=East, 4=South, 6=West
+     * @return direction string or null if invalid
+     */
+    private String convertDirectionToString(int direction) {
+        switch (direction) {
+            case 0: return "N";
+            case 2: return "E";
+            case 4: return "S";
+            case 6: return "W";
+            default: return null;
         }
     }
 

@@ -10,7 +10,6 @@ public class GridCell {
     private boolean isTemporaryObstacle;
     private boolean isRobot;
     private boolean isTarget;
-    private String targetId;
     private int obstacleNumber;
     private String borderDirection;
     private int borderColor;
@@ -24,7 +23,6 @@ public class GridCell {
         this.isTemporaryObstacle = false;
         this.isRobot = false;
         this.isTarget = false;
-        this.targetId = null;
         this.obstacleNumber = 0;
         this.borderDirection = null;
         this.borderColor = 0;
@@ -50,10 +48,6 @@ public class GridCell {
 
     public boolean isTarget() { return isTarget; }
     public void setTarget(boolean target) { this.isTarget = target; }
-
-    public String getTargetId() { return targetId; }
-    public void setTargetId(String targetId) { this.targetId = targetId; }
-
     public int getObstacleNumber() { return obstacleNumber; }
     public void setObstacleNumber(int obstacleNumber) { this.obstacleNumber = obstacleNumber; }
 
@@ -70,34 +64,10 @@ public class GridCell {
     public void setTempRobot(boolean tempRobot) { this.isTempRobot = tempRobot; }
 
     /**
-     * Clear all cell data to default state
-     */
-    public void clear() {
-        this.data = "";
-        this.color = GridConstants.DEFAULT_CELL_COLOR;
-        this.isObstacle = false;
-        this.isTemporaryObstacle = false;
-        this.isRobot = false;
-        this.isTarget = false;
-        this.targetId = null;
-        this.obstacleNumber = 0;
-        this.borderDirection = null;
-        this.borderColor = 0;
-        this.isTempHighlight = false;
-        this.isTempRobot = false;
-    }
-
-    /**
-     * Check if this is a permanent obstacle (not temporary and not robot)
-     */
-    public boolean isPermanentObstacle() {
-        return isObstacle && !isTemporaryObstacle && !isRobot;
-    }
-
-    /**
      * Check if cell has any border
      */
     public boolean hasBorder() {
         return borderDirection != null && borderColor != 0;
     }
+
 }

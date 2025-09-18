@@ -146,7 +146,7 @@ public class DataCommunicationManager {
         showToast("Messages cleared");
     }
 
-    public void onDataReceived(String data) {
+    public void onDataReceived() {
         // Always increment message count for all received data
         messageCount++;
         updateMessageCount();
@@ -197,31 +197,8 @@ public class DataCommunicationManager {
         return sdf.format(new Date());
     }
 
-    public int getMessageCount() {
-        return messageCount;
-    }
-
-    public void resetMessageCount() {
-        messageCount = 0;
-        updateMessageCount();
-    }
-
-    public void setConnectedDeviceName(String deviceName) {
-        this.connectedDeviceName = deviceName != null ? deviceName : "Unknown Device";
-        if (connectionStatusText != null) {
-            connectionStatusText.setText("Connected to " + connectedDeviceName);
-        }
-    }
-
     private void showToast(String message) {
         Toast.makeText(context, message, Toast.LENGTH_SHORT).show();
     }
 
-    public StringBuilder getReceivedDataBuffer() {
-        return receivedDataBuffer;
-    }
-
-    public StringBuilder getSentDataBuffer() {
-        return sentDataBuffer;
-    }
 }

@@ -14,7 +14,6 @@ public class GridConstants {
     public static final int HEADER_COLOR = Color.parseColor("#2196F3");
     public static final int DEFAULT_CELL_COLOR = Color.parseColor("#E0E0E0");
     public static final int OBSTACLE_COLOR = Color.parseColor("#FF5722");
-    public static final int NUMBERED_OBSTACLE_COLOR = Color.parseColor("#FF9800");
     public static final int ROBOT_COLOR = Color.parseColor("#03A9F4");
     public static final int ROBOT_FRONT_COLOR = Color.parseColor("#FFEB3B");
     public static final int SELECTED_COLOR = Color.parseColor("#FFEB3B");

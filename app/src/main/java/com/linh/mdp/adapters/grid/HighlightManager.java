@@ -6,51 +6,6 @@ package com.linh.mdp.adapters.grid;
 public class HighlightManager {
 
     /**
-     * Highlight obstacle borders in a specific direction
-     */
-    public void highlightObstacleBorders(String direction, int borderColor, GridCell[] cells) {
-        clearBorderHighlights(cells);
-
-        for (int row = 0; row < GridConstants.DATA_SIZE; row++) {
-            for (int col = 1; col < GridConstants.GRID_SIZE; col++) {
-                GridCell cell = cells[row * GridConstants.GRID_SIZE + col];
-                if (cell.isObstacle()) {
-                    boolean shouldHighlight = shouldHighlightBorder(row, col, direction, cells);
-                    if (shouldHighlight) {
-                        cell.setBorderDirection(direction.toUpperCase());
-                        cell.setBorderColor(borderColor);
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * Clear all border highlights
-     */
-    public void clearBorderHighlights(GridCell[] cells) {
-        for (int i = 0; i < GridConstants.TOTAL_CELLS; i++) {
-            GridCell cell = cells[i];
-            cell.setBorderDirection(null);
-            cell.setBorderColor(0);
-        }
-    }
-
-    /**
-     * Highlight specific cell border
-     */
-    public void highlightCellBorder(int row, int col, int borderColor, GridCell[] cells) {
-        if (!isValidDataCell(row, col)) return;
-
-        int position = row * GridConstants.GRID_SIZE + col;
-        GridCell cell = cells[position];
-
-        String borderDirection = determineBorderDirection(row, col, cells);
-        cell.setBorderDirection(borderDirection);
-        cell.setBorderColor(borderColor);
-    }
-
-    /**
      * Highlight specific cell border with given direction
      */
     public void highlightCellBorder(int row, int col, int borderColor, String direction, GridCell[] cells) {
@@ -124,52 +79,6 @@ public class HighlightManager {
                 cell.setTempHighlight(false);
             }
         }
-    }
-
-    /**
-     * Determine if border should be highlighted based on direction
-     */
-    private boolean shouldHighlightBorder(int row, int col, String direction, GridCell[] cells) {
-        switch (direction.toUpperCase()) {
-            case "N": // North border
-                return (row == 0 || !isCellObstacle(row - 1, col, cells));
-            case "S": // South border
-                return (row == GridConstants.DATA_SIZE - 1 || !isCellObstacle(row + 1, col, cells));
-            case "E": // East border
-                return (col == GridConstants.GRID_SIZE - 1 || !isCellObstacle(row, col + 1, cells));
-            case "W": // West border
-                return (col == 1 || !isCellObstacle(row, col - 1, cells));
-            default:
-                return false;
-        }
-    }
-
-    /**
-     * Determine border direction based on adjacent obstacles
-     */
-    private String determineBorderDirection(int row, int col, GridCell[] cells) {
-        StringBuilder borderDirection = new StringBuilder();
-
-        boolean hasNorthBorder = (row == 0 || !isCellObstacle(row - 1, col, cells));
-        boolean hasSouthBorder = (row == GridConstants.DATA_SIZE - 1 || !isCellObstacle(row + 1, col, cells));
-        boolean hasEastBorder = (col == GridConstants.GRID_SIZE - 1 || !isCellObstacle(row, col + 1, cells));
-        boolean hasWestBorder = (col == 1 || !isCellObstacle(row, col - 1, cells));
-
-        if (hasNorthBorder) borderDirection.append("N");
-        if (hasSouthBorder) borderDirection.append("S");
-        if (hasEastBorder) borderDirection.append("E");
-        if (hasWestBorder) borderDirection.append("W");
-
-        return borderDirection.length() == 0 ? "ALL" : borderDirection.toString();
-    }
-
-    /**
-     * Check if cell is obstacle
-     */
-    private boolean isCellObstacle(int row, int col, GridCell[] cells) {
-        if (!isValidDataCell(row, col)) return false;
-        int position = row * GridConstants.GRID_SIZE + col;
-        return cells[position].isObstacle();
     }
 
     /**

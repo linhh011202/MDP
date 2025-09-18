@@ -2,6 +2,8 @@ package com.linh.mdp.adapters;
 
 import android.content.Context;
 import android.graphics.Color;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -21,7 +23,6 @@ import com.linh.mdp.ui.BorderableCell;
  * This adapter is now focused only on the Android adapter responsibilities
  */
 public class GridTableAdapter extends BaseAdapter {
-    private final Context context;
     private final LayoutInflater inflater;
 
     // Managers for different responsibilities
@@ -33,8 +34,25 @@ public class GridTableAdapter extends BaseAdapter {
     // Batching for smoother dragging
     private boolean notificationsEnabled = true;
 
+    // Low-latency continuous drag support
+    private boolean inContinuousDrag = false;
+    private final Handler frameHandler = new Handler(Looper.getMainLooper());
+    private final Runnable frameRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (inContinuousDrag) {
+                // Temporarily allow notification for this frame
+                boolean prev = notificationsEnabled;
+                notificationsEnabled = true;
+                notifyDataSetChanged();
+                notificationsEnabled = prev; // usually false during drag
+                // Schedule next frame ~60fps
+                frameHandler.postDelayed(this, 16); // ~16ms
+            }
+        }
+    };
+
     public GridTableAdapter(Context context) {
-        this.context = context;
         this.inflater = LayoutInflater.from(context);
         this.dataManager = new GridDataManager();
         this.robotManager = new RobotManager();
@@ -49,7 +67,31 @@ public class GridTableAdapter extends BaseAdapter {
 
     // Public batching API
     public void beginBatchUpdates() { notificationsEnabled = false; }
-    public void endBatchUpdates() { notificationsEnabled = true; notifyDataSetChanged(); }
+    public void endBatchUpdates() {
+        // Restore notifications only if not in continuous drag; otherwise keep suppressed
+        notificationsEnabled = !inContinuousDrag;
+        if (!inContinuousDrag) {
+            notifyDataSetChanged();
+        }
+    }
+
+    // Continuous drag APIs
+    public void beginContinuousDrag() {
+        if (inContinuousDrag) return;
+        inContinuousDrag = true;
+        notificationsEnabled = false; // suppress per-cell notifies
+        frameHandler.post(frameRunnable); // start frame loop immediately
+    }
+
+    public void endContinuousDrag() {
+        if (!inContinuousDrag) return;
+        inContinuousDrag = false;
+        frameHandler.removeCallbacks(frameRunnable);
+        notificationsEnabled = true;
+        notifyDataSetChanged(); // final refresh with all accumulated changes
+    }
+
+    public boolean isInContinuousDrag() { return inContinuousDrag; }
 
     @Override
     public int getCount() {
@@ -138,26 +180,8 @@ public class GridTableAdapter extends BaseAdapter {
     // PUBLIC API METHODS - Delegate to appropriate managers
     // ============================================================================
 
-    // Basic grid operations
-    public void updateCell(int row, int col, String data) {
-        dataManager.updateCell(row, col, data);
-        notifyChangedIfEnabled();
-    }
-
     public void updateCell(int row, int col, String data, int color) {
         dataManager.updateCell(row, col, data, color);
-        notifyChangedIfEnabled();
-    }
-
-    public void clearData() {
-        dataManager.clearData();
-        robotManager.clearRobot(dataManager.getAllCells());
-        obstacleManager.resetObstacleCounter();
-        notifyChangedIfEnabled();
-    }
-
-    public void fillWithSampleData() {
-        dataManager.fillWithSampleData();
         notifyChangedIfEnabled();
     }
 
@@ -170,59 +194,12 @@ public class GridTableAdapter extends BaseAdapter {
         return robotManager.hasRobot();
     }
 
-    public int getRobotCenterRow() {
-        return robotManager.getCenterRow();
-    }
-
-    public int getRobotCenterCol() {
-        return robotManager.getCenterCol();
-    }
-
     public int getRobotOrientation() {
         return robotManager.getOrientation();
     }
 
     public int[] getRobotPosition() {
         return robotManager.getRobotPosition();
-    }
-
-    public int[] getRobotDisplayPosition() {
-        return robotManager.getDisplayPosition();
-    }
-
-    public String getRobotDirectionString() {
-        return robotManager.getDirectionString();
-    }
-
-    public boolean canPlaceRobotAtCenter(int centerRow, int centerCol) {
-        return robotManager.canPlaceAtCenter(centerRow, centerCol, dataManager.getAllCells());
-    }
-
-    public boolean placeRobotAtCenter(int centerRow, int centerCol) {
-        boolean result = robotManager.placeAtCenter(centerRow, centerCol, dataManager.getAllCells());
-        if (result) notifyChangedIfEnabled();
-        return result;
-    }
-
-    public boolean placeRobot(int row, int col, int orientation) {
-        boolean result = robotManager.placeAtCenter(row, col, dataManager.getAllCells());
-        if (result) {
-            // Set orientation after placement
-            for (int i = 0; i < orientation; i++) {
-                robotManager.turnRight(dataManager.getAllCells());
-            }
-            notifyChangedIfEnabled();
-        }
-        return result;
-    }
-
-    public void clearRobot() {
-        robotManager.clearRobot(dataManager.getAllCells());
-        notifyChangedIfEnabled();
-    }
-
-    public void removeRobot() {
-        clearRobot();
     }
 
     public void turnRobotLeft() {
@@ -269,10 +246,6 @@ public class GridTableAdapter extends BaseAdapter {
         return robotManager.getTempCenterRow();
     }
 
-    public int getTempRobotCenterCol() {
-        return robotManager.getTempCenterCol();
-    }
-
     // Obstacle operations
     public void setObstacle(int row, int col, boolean isObstacleCell) {
         if (isObstacleCell) {
@@ -281,12 +254,6 @@ public class GridTableAdapter extends BaseAdapter {
             obstacleManager.removeObstacle(row, col, dataManager.getAllCells());
         }
         notifyChangedIfEnabled();
-    }
-
-    public boolean removeObstacle(int row, int col) {
-        boolean result = obstacleManager.removeObstacle(row, col, dataManager.getAllCells());
-        if (result) notifyChangedIfEnabled();
-        return result;
     }
 
     public void clearObstacles() {
@@ -303,12 +270,6 @@ public class GridTableAdapter extends BaseAdapter {
         notifyChangedIfEnabled();
     }
 
-    public boolean moveObstaclePreserveNumber(int fromRow, int fromCol, int toRow, int toCol) {
-        boolean result = obstacleManager.moveObstaclePreserveNumber(fromRow, fromCol, toRow, toCol, dataManager.getAllCells());
-        if (result) notifyChangedIfEnabled();
-        return result;
-    }
-
     public void highlightSelectedObstacle(int row, int col) {
         obstacleManager.highlightSelectedObstacle(row, col, dataManager.getAllCells());
         notifyChangedIfEnabled();
@@ -319,42 +280,11 @@ public class GridTableAdapter extends BaseAdapter {
         notifyChangedIfEnabled();
     }
 
-    public int getNextObstacleNumber() {
-        return obstacleManager.getNextObstacleNumber();
-    }
-
     // Target operations
     public boolean setObstacleAsTarget(int obstacleNumber, String targetId) {
         boolean result = obstacleManager.setObstacleAsTarget(obstacleNumber, targetId, dataManager.getAllCells());
         if (result) notifyChangedIfEnabled();
         return result;
-    }
-
-    public boolean removeTargetFromObstacle(int obstacleNumber) {
-        boolean result = obstacleManager.removeTargetFromObstacle(obstacleNumber, dataManager.getAllCells());
-        if (result) notifyChangedIfEnabled();
-        return result;
-    }
-
-    public void clearAllTargets() {
-        obstacleManager.clearAllTargets(dataManager.getAllCells());
-        notifyChangedIfEnabled();
-    }
-
-    // Highlighting operations
-    public void highlightObstacleBorders(String direction, int borderColor) {
-        highlightManager.highlightObstacleBorders(direction, borderColor, dataManager.getAllCells());
-        notifyChangedIfEnabled();
-    }
-
-    public void clearBorderHighlights() {
-        highlightManager.clearBorderHighlights(dataManager.getAllCells());
-        notifyChangedIfEnabled();
-    }
-
-    public void highlightCellBorder(int row, int col, int borderColor) {
-        highlightManager.highlightCellBorder(row, col, borderColor, dataManager.getAllCells());
-        notifyChangedIfEnabled();
     }
 
     public void highlightCellBorder(int row, int col, int borderColor, String direction) {
@@ -394,42 +324,24 @@ public class GridTableAdapter extends BaseAdapter {
         return dataManager.isCellRobot(row, col);
     }
 
-    public boolean isCellTarget(int row, int col) {
-        return dataManager.isCellTarget(row, col);
-    }
-
-    public String getCellTargetId(int row, int col) {
-        return dataManager.getCellTargetId(row, col);
-    }
-
     public int getObstacleNumber(int row, int col) {
         return dataManager.getObstacleNumberAt(row, col);
     }
 
-    public int getObstacleNumberAt(int row, int col) {
-        return dataManager.getObstacleNumberAt(row, col);
-    }
-
-    public boolean hasCellBorder(int row, int col) {
-        return dataManager.hasCellBorder(row, col);
-    }
-
+    // New query: get border direction of a cell (N/S/E/W or null)
     public String getCellBorderDirection(int row, int col) {
-        return dataManager.getCellBorderDirection(row, col);
-    }
-
-    public boolean isVisuallyPermanentObstacle(int row, int col) {
-        return dataManager.isVisuallyPermanentObstacle(row, col);
+        GridCell cell = dataManager.getCell(row, col);
+        return cell != null ? cell.getBorderDirection() : null;
     }
 
     // Legacy methods that are no longer needed but kept for compatibility
     @Deprecated
-    public void assignObstacleNumber(int row, int col) {
+    public void assignObstacleNumber() {
         // This functionality is now handled automatically in setObstacle
     }
 
     @Deprecated
-    public void removeObstacleNumber(int row, int col) {
+    public void removeObstacleNumber() {
         // This functionality is now handled in removeObstacle
     }
 }

@@ -32,7 +32,7 @@ public class PermissionUtils {
         List<String> permissionsNeeded = getRequiredBluetoothPermissions(activity);
 
         if (permissionsNeeded.isEmpty()) {
-            return true;
+            return false;
         }
 
         ActivityCompat.requestPermissions(
@@ -40,7 +40,7 @@ public class PermissionUtils {
             permissionsNeeded.toArray(new String[0]),
             BluetoothConstants.REQUEST_PERMISSIONS
         );
-        return false;
+        return true;
     }
 
     /**

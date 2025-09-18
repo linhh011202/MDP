@@ -115,7 +115,7 @@ public class FabMenuController {
         isFabMenuOpen = true;
 
         // Show sub FABs and labels with animation
-        setFabVisibility(View.VISIBLE);
+        setFabVisibility();
         animateFabsIn();
 
         // Rotate main FAB
@@ -136,15 +136,15 @@ public class FabMenuController {
         }
     }
 
-    private void setFabVisibility(int visibility) {
-        if (fabSend != null) fabSend.setVisibility(visibility);
-        if (fabReceive != null) fabReceive.setVisibility(visibility);
-        if (fabObstacle != null) fabObstacle.setVisibility(visibility);
-        if (fabRobot != null) fabRobot.setVisibility(visibility);
-        if (fabSendLabel != null) fabSendLabel.setVisibility(visibility);
-        if (fabReceiveLabel != null) fabReceiveLabel.setVisibility(visibility);
-        if (fabObstacleLabel != null) fabObstacleLabel.setVisibility(visibility);
-        if (fabRobotLabel != null) fabRobotLabel.setVisibility(visibility);
+    private void setFabVisibility() {
+        if (fabSend != null) fabSend.setVisibility(View.VISIBLE);
+        if (fabReceive != null) fabReceive.setVisibility(View.VISIBLE);
+        if (fabObstacle != null) fabObstacle.setVisibility(View.VISIBLE);
+        if (fabRobot != null) fabRobot.setVisibility(View.VISIBLE);
+        if (fabSendLabel != null) fabSendLabel.setVisibility(View.VISIBLE);
+        if (fabReceiveLabel != null) fabReceiveLabel.setVisibility(View.VISIBLE);
+        if (fabObstacleLabel != null) fabObstacleLabel.setVisibility(View.VISIBLE);
+        if (fabRobotLabel != null) fabRobotLabel.setVisibility(View.VISIBLE);
     }
 
     private void animateFabsIn() {
@@ -176,44 +176,28 @@ public class FabMenuController {
 
     private void animateFabsOut() {
         if (fabSend != null) {
-            fabSend.animate().translationY(0).alpha(0.0f).setDuration(300).withEndAction(() -> {
-                fabSend.setVisibility(View.GONE);
-            });
+            fabSend.animate().translationY(0).alpha(0.0f).setDuration(300).withEndAction(() -> fabSend.setVisibility(View.GONE));
         }
         if (fabReceive != null) {
-            fabReceive.animate().translationY(0).alpha(0.0f).setDuration(300).withEndAction(() -> {
-                fabReceive.setVisibility(View.GONE);
-            });
+            fabReceive.animate().translationY(0).alpha(0.0f).setDuration(300).withEndAction(() -> fabReceive.setVisibility(View.GONE));
         }
         if (fabObstacle != null) {
-            fabObstacle.animate().translationY(0).alpha(0.0f).setDuration(300).withEndAction(() -> {
-                fabObstacle.setVisibility(View.GONE);
-            });
+            fabObstacle.animate().translationY(0).alpha(0.0f).setDuration(300).withEndAction(() -> fabObstacle.setVisibility(View.GONE));
         }
         if (fabRobot != null) {
-            fabRobot.animate().translationY(0).alpha(0.0f).setDuration(300).withEndAction(() -> {
-                fabRobot.setVisibility(View.GONE);
-            });
+            fabRobot.animate().translationY(0).alpha(0.0f).setDuration(300).withEndAction(() -> fabRobot.setVisibility(View.GONE));
         }
         if (fabSendLabel != null) {
-            fabSendLabel.animate().translationY(0).alpha(0.0f).setDuration(300).withEndAction(() -> {
-                fabSendLabel.setVisibility(View.GONE);
-            });
+            fabSendLabel.animate().translationY(0).alpha(0.0f).setDuration(300).withEndAction(() -> fabSendLabel.setVisibility(View.GONE));
         }
         if (fabReceiveLabel != null) {
-            fabReceiveLabel.animate().translationY(0).alpha(0.0f).setDuration(300).withEndAction(() -> {
-                fabReceiveLabel.setVisibility(View.GONE);
-            });
+            fabReceiveLabel.animate().translationY(0).alpha(0.0f).setDuration(300).withEndAction(() -> fabReceiveLabel.setVisibility(View.GONE));
         }
         if (fabObstacleLabel != null) {
-            fabObstacleLabel.animate().translationY(0).alpha(0.0f).setDuration(300).withEndAction(() -> {
-                fabObstacleLabel.setVisibility(View.GONE);
-            });
+            fabObstacleLabel.animate().translationY(0).alpha(0.0f).setDuration(300).withEndAction(() -> fabObstacleLabel.setVisibility(View.GONE));
         }
         if (fabRobotLabel != null) {
-            fabRobotLabel.animate().translationY(0).alpha(0.0f).setDuration(300).withEndAction(() -> {
-                fabRobotLabel.setVisibility(View.GONE);
-            });
+            fabRobotLabel.animate().translationY(0).alpha(0.0f).setDuration(300).withEndAction(() -> fabRobotLabel.setVisibility(View.GONE));
         }
     }
 
@@ -253,7 +237,7 @@ public class FabMenuController {
         showToast("Robot panel hidden");
     }
 
-    public void updateObstacleButtonState(boolean isEnabled) {
+    public void updateObstacleButtonState() {
         // Disable toggle semantics; always show consistent icon/label for obstacle mode
         if (fabObstacle != null) {
             fabObstacle.setImageResource(android.R.drawable.ic_delete);

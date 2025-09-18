@@ -26,25 +26,14 @@ public class RobotManager {
     }
 
     /**
-     * Get robot position in display coordinates (0-19)
-     */
-    public int[] getDisplayPosition() {
-        if (!hasRobot()) return null;
-        int displayX = centerCol - 1; // col (1-20) -> x (0-19)
-        // Correct off-by-one: internal row 0 (top) should map to displayY 19 (bottom)
-        int displayY = (GridConstants.DATA_SIZE - 1) - centerRow; // row (0-19) -> y (0-19) inverted
-        return new int[]{displayX, displayY};
-    }
-
-    /**
      * Check if a 3x3 robot can be placed at the given center
      */
     public boolean canPlaceAtCenter(int centerRow, int centerCol, GridCell[] cells) {
         // Ensure within data area
-        if (!(centerCol > 0 && centerRow >= 0 && centerRow < GridConstants.DATA_SIZE)) return false;
+        if (!(centerCol > 0 && centerRow >= 0 && centerRow < GridConstants.DATA_SIZE)) return true;
         // Must have one-cell margin in all directions
-        if (centerRow - 1 < 0 || centerRow + 1 > GridConstants.DATA_SIZE - 1) return false;
-        if (centerCol - 1 < 1 || centerCol + 1 > GridConstants.GRID_SIZE - 1) return false;
+        if (centerRow - 1 < 0 || centerRow + 1 > GridConstants.DATA_SIZE - 1) return true;
+        if (centerCol - 1 < 1 || centerCol + 1 > GridConstants.GRID_SIZE - 1) return true;
 
         // Check collisions with permanent obstacles
         for (int r = centerRow - 1; r <= centerRow + 1; r++) {
@@ -52,17 +41,17 @@ public class RobotManager {
                 int pos = r * GridConstants.GRID_SIZE + c;
                 GridCell cell = cells[pos];
                 // Block if there is a permanent obstacle (excluding current robot position)
-                if (cell.isObstacle() && !cell.isRobot()) return false;
+                if (cell.isObstacle() && !cell.isRobot()) return true;
             }
         }
-        return true;
+        return false;
     }
 
     /**
      * Place robot at center position
      */
     public boolean placeAtCenter(int centerRow, int centerCol, GridCell[] cells) {
-        if (!canPlaceAtCenter(centerRow, centerCol, cells)) return false;
+        if (canPlaceAtCenter(centerRow, centerCol, cells)) return false;
 
         // Clear existing robot
         clearRobot(cells);
@@ -138,7 +127,7 @@ public class RobotManager {
         if (!hasRobot()) return false;
         int newCenterRow = centerRow + dRow;
         int newCenterCol = centerCol + dCol;
-        if (!canPlaceAtCenter(newCenterRow, newCenterCol, cells)) return false;
+        if (canPlaceAtCenter(newCenterRow, newCenterCol, cells)) return false;
 
         // Check collisions excluding current robot footprint
         for (int r = newCenterRow - 1; r <= newCenterRow + 1; r++) {
@@ -173,16 +162,20 @@ public class RobotManager {
         }
 
         // Determine front cell based on orientation
+        int frontPos = getFrontPos();
+        cells[frontPos].setColor(GridConstants.ROBOT_FRONT_COLOR);
+    }
+
+    private int getFrontPos() {
         int relR = 0, relC = 1; // default North
         switch (orientation) {
             case GridConstants.ORIENTATION_NORTH:
-                relR = 0; relC = 1;
                 break;
             case GridConstants.ORIENTATION_EAST:
                 relR = 1; relC = 2;
                 break;
             case GridConstants.ORIENTATION_SOUTH:
-                relR = 2; relC = 1;
+                relR = 2;
                 break;
             case GridConstants.ORIENTATION_WEST:
                 relR = 1; relC = 0;
@@ -191,8 +184,7 @@ public class RobotManager {
 
         int frontRow = (centerRow - 1) + relR;
         int frontCol = (centerCol - 1) + relC;
-        int frontPos = frontRow * GridConstants.GRID_SIZE + frontCol;
-        cells[frontPos].setColor(GridConstants.ROBOT_FRONT_COLOR);
+        return frontRow * GridConstants.GRID_SIZE + frontCol;
     }
 
     /**
@@ -230,30 +222,12 @@ public class RobotManager {
         }
     }
 
-    /**
-     * Get direction as string
-     */
-    public String getDirectionString() {
-        if (!hasRobot()) return null;
-        switch (orientation) {
-            case GridConstants.ORIENTATION_NORTH: return "N";
-            case GridConstants.ORIENTATION_EAST: return "E";
-            case GridConstants.ORIENTATION_SOUTH: return "S";
-            case GridConstants.ORIENTATION_WEST: return "W";
-            default: return "N";
-        }
-    }
-
-    // Getters
-    public int getCenterRow() { return centerRow; }
-    public int getCenterCol() { return centerCol; }
     public int getOrientation() { return orientation; }
     public int getTempCenterRow() { return tempCenterRow; }
-    public int getTempCenterCol() { return tempCenterCol; }
 
     // Temporary robot preview methods
     public boolean showTemporaryRobotAtCenter(int centerRow, int centerCol, GridCell[] cells) {
-        if (!canPlaceAtCenter(centerRow, centerCol, cells)) return false;
+        if (canPlaceAtCenter(centerRow, centerCol, cells)) return false;
         clearTemporaryRobotPreview(cells);
 
         for (int r = centerRow - 1; r <= centerRow + 1; r++) {
@@ -279,8 +253,7 @@ public class RobotManager {
                 if (cell.isTempRobot()) {
                     int row = i / GridConstants.GRID_SIZE;
                     int col = i % GridConstants.GRID_SIZE;
-                    if (col > 0 && row >= 0 && row < GridConstants.DATA_SIZE &&
-                        !cell.isObstacle() && !cell.isRobot()) {
+                    if (col > 0 && row < GridConstants.DATA_SIZE && !cell.isObstacle() && !cell.isRobot()) {
                         cell.setColor(GridConstants.DEFAULT_CELL_COLOR);
                     }
                     cell.setTempRobot(false);
