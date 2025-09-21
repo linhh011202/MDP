@@ -95,11 +95,53 @@ public class ObstacleManager {
             GridCell cell = cells[i];
             if (cell.getObstacleNumber() == obstacleNumber && cell.isObstacle() && !cell.isRobot()) {
                 cell.setTarget(true);
-                cell.setData(targetId);
+                cell.setData(convertTextToDisplayCharacter(targetId));
                 return true;
             }
         }
         return false;
+    }
+
+    /**
+     * Convert text to display characters
+     */
+    private String convertTextToDisplayCharacter(String targetId) {
+        if (targetId == null) return "";
+
+        switch (targetId.toLowerCase()) {
+            case "bullseye": return "□";
+            case "one": return "1";
+            case "two": return "2";
+            case "three": return "3";
+            case "four": return "4";
+            case "five": return "5";
+            case "six": return "6";
+            case "seven": return "7";
+            case "eight": return "8";
+            case "nine": return "9";
+            case "a": return "A";
+            case "b": return "B";
+            case "c": return "C";
+            case "d": return "D";
+            case "e": return "E";
+            case "f": return "F";
+            case "g": return "G";
+            case "h": return "H";
+            case "s": return "S";
+            case "t": return "T";
+            case "u": return "U";
+            case "v": return "V";
+            case "w": return "W";
+            case "x": return "X";
+            case "y": return "Y";
+            case "z": return "Z";
+            case "up arrow": return "↑";
+            case "down arrow": return "↓";
+            case "right arrow": return "→";
+            case "left arrow": return "←";
+            case "stop": return "○";
+            default: return targetId; // Return as-is if not a recognized text number
+        }
     }
 
     /**
