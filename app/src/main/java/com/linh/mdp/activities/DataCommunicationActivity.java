@@ -146,7 +146,11 @@ public class DataCommunicationActivity extends AppCompatActivity implements
             findViewById(R.id.robotDownButton),
             findViewById(R.id.robotTurnLeftButton),
             findViewById(R.id.robotTurnRightButton),
-            findViewById(R.id.robotStatusText)
+            findViewById(R.id.robotStatusText),
+            findViewById(R.id.robotCenterXInput),
+            findViewById(R.id.robotCenterYInput),
+            findViewById(R.id.placeRobotByCoordButton),
+            findViewById(R.id.robotPositionStatusText)
         );
 
         // Setup Obstacle Controller
@@ -163,7 +167,11 @@ public class DataCommunicationActivity extends AppCompatActivity implements
             findViewById(R.id.westBorderButton),
             findViewById(R.id.obstacleActionStatus),
             findViewById(R.id.borderDirectionSection),
-            findViewById(R.id.sendObstaclesButton)
+            findViewById(R.id.sendObstaclesButton),
+            findViewById(R.id.tempObstacleXInput),
+            findViewById(R.id.tempObstacleYInput),
+            findViewById(R.id.placeTempObstacleButton),
+            findViewById(R.id.tempObstacleStatusText)
         );
 
         // Wire the dedicated Remove Obstacle button to enter remove mode (reveals Clear All)

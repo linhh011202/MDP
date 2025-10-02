@@ -2,6 +2,7 @@ package com.linh.mdp.controllers;
 
 import android.content.Context;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -25,6 +26,10 @@ public class RobotController {
     private Button robotTurnLeftButton;
     private Button robotTurnRightButton;
     private TextView robotStatusText;
+    private EditText robotCenterXInput;
+    private EditText robotCenterYInput;
+    private Button placeRobotByCoordButton;
+    private TextView robotPositionStatusText;
 
     private boolean isPlacingRobotMode = false;
     private boolean suppressCancelToastOnce = false; // prevent cancel toast after confirm
@@ -39,7 +44,8 @@ public class RobotController {
     }
 
     public void setUIComponents(Button placeRobotButton, Button robotConfirmButton, Button robotUpButton, Button robotDownButton,
-                               Button robotTurnLeftButton, Button robotTurnRightButton, TextView robotStatusText) {
+                               Button robotTurnLeftButton, Button robotTurnRightButton, TextView robotStatusText,
+                               EditText robotCenterXInput, EditText robotCenterYInput, Button placeRobotByCoordButton, TextView robotPositionStatusText) {
         this.placeRobotButton = placeRobotButton;
         this.robotConfirmButton = robotConfirmButton;
         this.robotUpButton = robotUpButton;
@@ -47,6 +53,10 @@ public class RobotController {
         this.robotTurnLeftButton = robotTurnLeftButton;
         this.robotTurnRightButton = robotTurnRightButton;
         this.robotStatusText = robotStatusText;
+        this.robotCenterXInput = robotCenterXInput;
+        this.robotCenterYInput = robotCenterYInput;
+        this.placeRobotByCoordButton = placeRobotByCoordButton;
+        this.robotPositionStatusText = robotPositionStatusText;
 
         setupClickListeners();
         updateRobotButtonsState();
@@ -77,6 +87,10 @@ public class RobotController {
 
         if (robotTurnRightButton != null) {
             robotTurnRightButton.setOnClickListener(v -> turnRobotRight());
+        }
+
+        if (placeRobotByCoordButton != null) {
+            placeRobotByCoordButton.setOnClickListener(v -> placeRobotByCoordinates());
         }
     }
 
@@ -307,6 +321,124 @@ public class RobotController {
         if (isPlacingRobotMode) {
             endContinuousDragIfActive();
             setPlacingRobotMode(false);
+        }
+    }
+
+    /**
+     * Place a robot at the specified coordinates from user input
+     */
+    private void placeRobotByCoordinates() {
+        if (robotCenterXInput == null || robotCenterYInput == null || robotPositionStatusText == null) {
+            showToast("Input fields not available");
+            return;
+        }
+
+        // Get coordinates from input fields
+        String xText = robotCenterXInput.getText().toString().trim();
+        String yText = robotCenterYInput.getText().toString().trim();
+
+        if (xText.isEmpty() || yText.isEmpty()) {
+            updateRobotPositionStatus("Please enter both X and Y coordinates", false);
+            return;
+        }
+
+        try {
+            int displayX = Integer.parseInt(xText);
+            int displayY = Integer.parseInt(yText);
+
+            // Validate coordinate ranges (X: 1-18, Y: 1-18) for 3x3 robot
+            if (displayX < 1 || displayX > 18) {
+                updateRobotPositionStatus("X coordinate must be between 1 and 18 for robot center", false);
+                return;
+            }
+            if (displayY < 1 || displayY > 18) {
+                updateRobotPositionStatus("Y coordinate must be between 1 and 18 for robot center", false);
+                return;
+            }
+
+            // Convert display coordinates to grid coordinates
+            int gridCol = displayX + 1; // X maps to column (1-18 -> 2-19, valid center for 3x3)
+            int gridRow = (gridAdapter.getGridSize() - 2) - displayY; // Y maps inversely to row
+
+            // Check if robot can be placed at this position (3x3 space needed)
+            if (!canPlaceRobotAt(gridRow, gridCol)) {
+                updateRobotPositionStatus("Cannot place robot at (" + displayX + ", " + displayY + ") - space occupied or too close to edge", false);
+                return;
+            }
+
+            // Place the robot by using the existing preview and confirm mechanism
+            boolean previewed = gridAdapter.showTemporaryRobotAtCenter(gridRow, gridCol);
+
+            if (previewed) {
+                // Confirm the placement
+                boolean placed = gridAdapter.confirmTemporaryRobotPlacement();
+
+                if (placed) {
+                    // Clear input fields
+                    robotCenterXInput.setText("");
+                    robotCenterYInput.setText("");
+
+                    // Update UI
+                    updateRobotStatusText();
+                    updateRobotButtonsState();
+                    updateRobotPositionStatus("Robot placed at center (" + displayX + ", " + displayY + ") facing North", true);
+                    showToast("Robot placed at (" + displayX + ", " + displayY + ")");
+
+                    // Exit placement mode if currently active
+                    if (isPlacingRobotMode) {
+                        suppressCancelToastOnce = true;
+                        setPlacingRobotMode(false);
+                    }
+                } else {
+                    updateRobotPositionStatus("Failed to confirm robot placement at (" + displayX + ", " + displayY + ")", false);
+                }
+            } else {
+                updateRobotPositionStatus("Cannot preview robot at (" + displayX + ", " + displayY + ") - invalid position", false);
+            }
+        } catch (NumberFormatException e) {
+            updateRobotPositionStatus("Please enter valid numbers for coordinates", false);
+        }
+    }
+
+    /**
+     * Check if robot can be placed at the specified center position
+     */
+    private boolean canPlaceRobotAt(int centerRow, int centerCol) {
+        if (gridAdapter == null) return false;
+
+        // Check if the 3x3 area around the center is valid and available
+        for (int dRow = -1; dRow <= 1; dRow++) {
+            for (int dCol = -1; dCol <= 1; dCol++) {
+                int checkRow = centerRow + dRow;
+                int checkCol = centerCol + dCol;
+
+                // Check bounds (must be within data area: col 1-20, row 0-19)
+                if (checkRow < 0 || checkRow >= gridAdapter.getGridSize() - 1 ||
+                    checkCol < 1 || checkCol >= gridAdapter.getGridSize()) {
+                    return false;
+                }
+
+                // Check if cell is occupied by obstacle
+                if (gridAdapter.isCellObstacle(checkRow, checkCol)) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Update the status text for robot position input
+     */
+    private void updateRobotPositionStatus(String message, boolean isSuccess) {
+        if (robotPositionStatusText != null) {
+            robotPositionStatusText.setText(message);
+            // Change text color based on success/error
+            if (isSuccess) {
+                robotPositionStatusText.setTextColor(android.graphics.Color.parseColor("#4CAF50")); // Green for success
+            } else {
+                robotPositionStatusText.setTextColor(android.graphics.Color.parseColor("#F44336")); // Red for error
+            }
         }
     }
 }

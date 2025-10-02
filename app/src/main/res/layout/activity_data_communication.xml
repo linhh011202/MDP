@@ -310,6 +310,101 @@
                         android:textSize="12sp" />
                 </LinearLayout>
 
+                <!-- Temporary Obstacle Position Input Section -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:layout_marginTop="16dp"
+                    android:background="#E8F5E8"
+                    android:padding="12dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Enter Temporary Obstacle Position:"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:textColor="#333333"
+                        android:layout_marginBottom="8dp" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Enter coordinates (X: 0-19, Y: 0-19) to place a temporary obstacle:"
+                        android:textSize="12sp"
+                        android:textColor="#666666"
+                        android:layout_marginBottom="8dp" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="X:"
+                            android:textSize="14sp"
+                            android:textColor="#333333"
+                            android:layout_marginEnd="8dp" />
+
+                        <EditText
+                            android:id="@+id/tempObstacleXInput"
+                            android:layout_width="60dp"
+                            android:layout_height="40dp"
+                            android:inputType="number"
+                            android:textSize="12sp"
+                            android:textAlignment="center"
+                            android:background="@android:drawable/edit_text"
+                            android:hint="0-19"
+                            android:layout_marginEnd="16dp" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Y:"
+                            android:textSize="14sp"
+                            android:textColor="#333333"
+                            android:layout_marginEnd="8dp" />
+
+                        <EditText
+                            android:id="@+id/tempObstacleYInput"
+                            android:layout_width="60dp"
+                            android:layout_height="40dp"
+                            android:inputType="number"
+                            android:textSize="12sp"
+                            android:textAlignment="center"
+                            android:background="@android:drawable/edit_text"
+                            android:hint="0-19"
+                            android:layout_marginEnd="16dp" />
+
+                        <Button
+                            android:id="@+id/placeTempObstacleButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="40dp"
+                            android:text="Place Temporary"
+                            android:backgroundTint="#FF6F00"
+                            android:textColor="@android:color/white"
+                            android:textSize="11sp"
+                            android:paddingStart="8dp"
+                            android:paddingEnd="8dp" />
+
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/tempObstacleStatusText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Enter coordinates and click 'Place Temporary' to add a temporary obstacle"
+                        android:textSize="11sp"
+                        android:textColor="#666666"
+                        android:layout_marginTop="4dp"
+                        android:gravity="center" />
+
+                </LinearLayout>
+
             </LinearLayout>
 
         </ScrollView>
@@ -444,6 +539,101 @@
                     android:textColor="#666666"
                     android:layout_marginTop="8dp"
                     android:gravity="center" />
+
+                <!-- Robot Position Input Section -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:layout_marginTop="16dp"
+                    android:background="#E3F2FD"
+                    android:padding="12dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Enter Robot Center Position:"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:textColor="#333333"
+                        android:layout_marginBottom="8dp" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Enter center coordinates (X: 1-18, Y: 1-18) to place robot (3x3):"
+                        android:textSize="12sp"
+                        android:textColor="#666666"
+                        android:layout_marginBottom="8dp" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="X:"
+                            android:textSize="14sp"
+                            android:textColor="#333333"
+                            android:layout_marginEnd="8dp" />
+
+                        <EditText
+                            android:id="@+id/robotCenterXInput"
+                            android:layout_width="60dp"
+                            android:layout_height="40dp"
+                            android:inputType="number"
+                            android:textSize="12sp"
+                            android:textAlignment="center"
+                            android:background="@android:drawable/edit_text"
+                            android:hint="1-18"
+                            android:layout_marginEnd="16dp" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Y:"
+                            android:textSize="14sp"
+                            android:textColor="#333333"
+                            android:layout_marginEnd="8dp" />
+
+                        <EditText
+                            android:id="@+id/robotCenterYInput"
+                            android:layout_width="60dp"
+                            android:layout_height="40dp"
+                            android:inputType="number"
+                            android:textSize="12sp"
+                            android:textAlignment="center"
+                            android:background="@android:drawable/edit_text"
+                            android:hint="1-18"
+                            android:layout_marginEnd="16dp" />
+
+                        <Button
+                            android:id="@+id/placeRobotByCoordButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="40dp"
+                            android:text="Place at Position"
+                            android:backgroundTint="#2196F3"
+                            android:textColor="@android:color/white"
+                            android:textSize="11sp"
+                            android:paddingStart="8dp"
+                            android:paddingEnd="8dp" />
+
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/robotPositionStatusText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Enter coordinates and click 'Place at Position' to position the robot"
+                        android:textSize="11sp"
+                        android:textColor="#666666"
+                        android:layout_marginTop="4dp"
+                        android:gravity="center" />
+
+                </LinearLayout>
 
             </LinearLayout>
         </ScrollView>

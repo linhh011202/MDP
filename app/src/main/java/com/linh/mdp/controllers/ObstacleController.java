@@ -4,6 +4,7 @@ import android.content.Context;
 import android.graphics.Color;
 import android.view.View;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -37,6 +38,10 @@ public class ObstacleController {
     private Button sendObstaclesButton; // new send obstacles button
     private TextView obstacleActionStatus;
     private View borderDirectionSection;
+    private EditText tempObstacleXInput;
+    private EditText tempObstacleYInput;
+    private Button placeTempObstacleButton;
+    private TextView tempObstacleStatusText;
 
     // State variables
     private boolean isObstacleModeEnabled = false;
@@ -76,7 +81,8 @@ public class ObstacleController {
                                Button confirmObstacleButton, Button cancelObstacleButton, Button setDirectionButton,
                                Button northBorderButton, Button southBorderButton, Button eastBorderButton, Button westBorderButton,
                                TextView obstacleActionStatus, View borderDirectionSection,
-                               Button sendObstaclesButton) { // added param
+                               Button sendObstaclesButton, EditText tempObstacleXInput, EditText tempObstacleYInput,
+                               Button placeTempObstacleButton, TextView tempObstacleStatusText) { // added params
         this.addObstacleButton = addObstacleButton;
         this.clearAllObstaclesButton = clearAllObstaclesButton;
         this.confirmObstacleButton = confirmObstacleButton;
@@ -89,6 +95,10 @@ public class ObstacleController {
         this.obstacleActionStatus = obstacleActionStatus;
         this.borderDirectionSection = borderDirectionSection;
         this.sendObstaclesButton = sendObstaclesButton;
+        this.tempObstacleXInput = tempObstacleXInput;
+        this.tempObstacleYInput = tempObstacleYInput;
+        this.placeTempObstacleButton = placeTempObstacleButton;
+        this.tempObstacleStatusText = tempObstacleStatusText;
 
         setupClickListeners();
     }
@@ -127,6 +137,11 @@ public class ObstacleController {
         }
         if (sendObstaclesButton != null) {
             sendObstaclesButton.setOnClickListener(v -> sendAllObstacles());
+        }
+
+        // Add click listener for temporary obstacle placement by coordinates
+        if (placeTempObstacleButton != null) {
+            placeTempObstacleButton.setOnClickListener(v -> placeTempObstacleByCoordinates());
         }
     }
 
@@ -798,6 +813,108 @@ public class ObstacleController {
     private void endContinuousDragIfActive() {
         if (gridAdapter != null && gridAdapter.isInContinuousDrag()) {
             gridAdapter.endContinuousDrag();
+        }
+    }
+
+    /**
+     * Place a temporary obstacle at the specified coordinates from user input
+     */
+    private void placeTempObstacleByCoordinates() {
+        if (tempObstacleXInput == null || tempObstacleYInput == null || tempObstacleStatusText == null) {
+            showToast("Input fields not available");
+            return;
+        }
+
+        // Get coordinates from input fields
+        String xText = tempObstacleXInput.getText().toString().trim();
+        String yText = tempObstacleYInput.getText().toString().trim();
+
+        if (xText.isEmpty() || yText.isEmpty()) {
+            updateTempObstacleStatus("Please enter both X and Y coordinates", false);
+            return;
+        }
+
+        try {
+            int displayX = Integer.parseInt(xText);
+            int displayY = Integer.parseInt(yText);
+
+            // Validate coordinate ranges (X: 0-19, Y: 0-19)
+            if (displayX < 0 || displayX > 19) {
+                updateTempObstacleStatus("X coordinate must be between 0 and 19", false);
+                return;
+            }
+            if (displayY < 0 || displayY > 19) {
+                updateTempObstacleStatus("Y coordinate must be between 0 and 19", false);
+                return;
+            }
+
+            // Convert display coordinates to grid coordinates
+            int gridCol = displayX + 1; // X maps to column (0-19 -> 1-20)
+            int gridRow = (gridAdapter.getGridSize() - 2) - displayY; // Y maps inversely to row (0-19 -> 19-0)
+
+            // Check if the cell is already occupied
+            if (gridAdapter.isCellObstacle(gridRow, gridCol) && !gridAdapter.isCellTemporaryObstacle(gridRow, gridCol)) {
+                updateTempObstacleStatus("Cell (" + displayX + ", " + displayY + ") already has a permanent obstacle", false);
+                return;
+            }
+
+            if (gridAdapter.isCellRobot(gridRow, gridCol)) {
+                updateTempObstacleStatus("Cell (" + displayX + ", " + displayY + ") is occupied by robot", false);
+                return;
+            }
+
+            // Clear any existing temporary obstacle
+            clearTemporaryObstacle();
+
+            // Set the temporary obstacle at the specified position
+            temporaryObstacleRow = gridRow;
+            temporaryObstacleCol = gridCol;
+            previousTemporaryRow = gridRow;
+            previousTemporaryCol = gridCol;
+            isDraggingObstacle = true;
+
+            // Set current action to add mode to enable confirmation
+            currentObstacleAction = "add";
+
+            // Update the grid
+            gridAdapter.beginBatchUpdates();
+            try {
+                gridAdapter.updateCell(gridRow, gridCol, "?", Color.parseColor("#FF9800"));
+                gridAdapter.applyTempRowColHighlight(gridRow, gridCol);
+            } finally {
+                gridAdapter.endBatchUpdates();
+            }
+
+            // Update UI state
+            updateObstacleCoordinate();
+            if (obstacleListener != null) {
+                obstacleListener.updateGridTableHeader();
+            }
+
+            // Clear input fields
+            tempObstacleXInput.setText("");
+            tempObstacleYInput.setText("");
+
+            updateTempObstacleStatus("Temporary obstacle placed at (" + displayX + ", " + displayY + "). Click Confirm to make permanent.", true);
+            showToast("Temporary obstacle placed at (" + displayX + ", " + displayY + ")");
+
+        } catch (NumberFormatException e) {
+            updateTempObstacleStatus("Please enter valid numbers for coordinates", false);
+        }
+    }
+
+    /**
+     * Update the status text for temporary obstacle input
+     */
+    private void updateTempObstacleStatus(String message, boolean isSuccess) {
+        if (tempObstacleStatusText != null) {
+            tempObstacleStatusText.setText(message);
+            // You could also change text color based on success/error if needed
+            if (isSuccess) {
+                tempObstacleStatusText.setTextColor(Color.parseColor("#4CAF50")); // Green for success
+            } else {
+                tempObstacleStatusText.setTextColor(Color.parseColor("#F44336")); // Red for error
+            }
         }
     }
 }
