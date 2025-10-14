@@ -256,9 +256,11 @@ public class BluetoothActivity extends AppCompatActivity implements BluetoothCon
             statusText.setText("Connected to " + deviceName);
             Toast.makeText(this, "Connected to " + deviceName, Toast.LENGTH_SHORT).show();
 
-            DataCommunicationActivity.setBluetoothHelper(bluetoothHelper);
+            // Share BluetoothHelper with other activities
+//            DataCommunicationActivity.setBluetoothHelper(bluetoothHelper);
+            StartActivity.setBluetoothHelper(bluetoothHelper);
 
-            Intent intent = new Intent(BluetoothActivity.this, DataCommunicationActivity.class);
+            Intent intent = new Intent(BluetoothActivity.this, StartActivity.class);
             intent.putExtra(BluetoothConstants.EXTRA_DEVICE_NAME, deviceName);
             startActivity(intent);
         });
