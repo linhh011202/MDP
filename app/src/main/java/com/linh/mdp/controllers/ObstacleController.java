@@ -5,6 +5,7 @@ import android.graphics.Color;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -26,27 +27,23 @@ public class ObstacleController {
     private BluetoothHelper bluetoothHelper;
 
     // UI components
-    private Button addObstacleButton;
     private Button clearAllObstaclesButton;
     private Button confirmObstacleButton;
     private Button cancelObstacleButton;
-    private Button setDirectionButton;
-    private Button northBorderButton;
-    private Button southBorderButton;
-    private Button eastBorderButton;
-    private Button westBorderButton;
     private Button sendObstaclesButton; // new send obstacles button
+    private Button toggleSendObstaclesButton; // toggle button for send obstacles
     private TextView obstacleActionStatus;
     private View borderDirectionSection;
     private EditText tempObstacleXInput;
     private EditText tempObstacleYInput;
     private Button placeTempObstacleButton;
     private TextView tempObstacleStatusText;
+    private Spinner tempObstacleDirectionSpinner;
 
     // State variables
     private boolean isObstacleModeEnabled = false;
+    private boolean isSendObstaclesEnabled = false; // new state for send obstacles toggle - default to disabled
     private String currentObstacleAction = "";
-    private String selectedDirection = "";
     private boolean isDraggingObstacle = false;
     private int temporaryObstacleRow = -1;
     private int temporaryObstacleCol = -1;
@@ -77,40 +74,30 @@ public class ObstacleController {
         this.obstacleListener = listener;
     }
 
-    public void setUIComponents(Button addObstacleButton, Button clearAllObstaclesButton,
-                               Button confirmObstacleButton, Button cancelObstacleButton, Button setDirectionButton,
-                               Button northBorderButton, Button southBorderButton, Button eastBorderButton, Button westBorderButton,
+    public void setUIComponents(Button clearAllObstaclesButton,
+                               Button confirmObstacleButton, Button cancelObstacleButton,
                                TextView obstacleActionStatus, View borderDirectionSection,
-                               Button sendObstaclesButton, EditText tempObstacleXInput, EditText tempObstacleYInput,
-                               Button placeTempObstacleButton, TextView tempObstacleStatusText) { // added params
-        this.addObstacleButton = addObstacleButton;
+                               Button sendObstaclesButton, Button toggleSendObstaclesButton, EditText tempObstacleXInput, EditText tempObstacleYInput,
+                               Button placeTempObstacleButton, TextView tempObstacleStatusText, Spinner tempObstacleDirectionSpinner) {
         this.clearAllObstaclesButton = clearAllObstaclesButton;
         this.confirmObstacleButton = confirmObstacleButton;
         this.cancelObstacleButton = cancelObstacleButton;
-        this.setDirectionButton = setDirectionButton;
-        this.northBorderButton = northBorderButton;
-        this.southBorderButton = southBorderButton;
-        this.eastBorderButton = eastBorderButton;
-        this.westBorderButton = westBorderButton;
         this.obstacleActionStatus = obstacleActionStatus;
         this.borderDirectionSection = borderDirectionSection;
         this.sendObstaclesButton = sendObstaclesButton;
+        this.toggleSendObstaclesButton = toggleSendObstaclesButton;
         this.tempObstacleXInput = tempObstacleXInput;
         this.tempObstacleYInput = tempObstacleYInput;
         this.placeTempObstacleButton = placeTempObstacleButton;
         this.tempObstacleStatusText = tempObstacleStatusText;
+        this.tempObstacleDirectionSpinner = tempObstacleDirectionSpinner;
 
         setupClickListeners();
+        updateSendObstaclesButtonState(); // Initialize the button state
     }
 
     private void setupClickListeners() {
         // Action buttons
-        if (addObstacleButton != null) {
-            addObstacleButton.setOnClickListener(v -> setCurrentObstacleAction("add"));
-        }
-        if (setDirectionButton != null) {
-            setDirectionButton.setOnClickListener(v -> setCurrentObstacleAction("direction"));
-        }
         // Per user request: "Clear All" should only execute when clicked, after Remove mode exposes it
         if (clearAllObstaclesButton != null) {
             clearAllObstaclesButton.setOnClickListener(v -> clearAllObstaclesAndResetUI());
@@ -122,19 +109,7 @@ public class ObstacleController {
             cancelObstacleButton.setOnClickListener(v -> cancelObstacleAction());
         }
 
-        // Direction pickers
-        if (northBorderButton != null) {
-            northBorderButton.setOnClickListener(v -> setBorder("N"));
-        }
-        if (southBorderButton != null) {
-            southBorderButton.setOnClickListener(v -> setBorder("S"));
-        }
-        if (eastBorderButton != null) {
-            eastBorderButton.setOnClickListener(v -> setBorder("E"));
-        }
-        if (westBorderButton != null) {
-            westBorderButton.setOnClickListener(v -> setBorder("W"));
-        }
+        // Add click listener for sending all obstacles
         if (sendObstaclesButton != null) {
             sendObstaclesButton.setOnClickListener(v -> sendAllObstacles());
         }
@@ -142,6 +117,11 @@ public class ObstacleController {
         // Add click listener for temporary obstacle placement by coordinates
         if (placeTempObstacleButton != null) {
             placeTempObstacleButton.setOnClickListener(v -> placeTempObstacleByCoordinates());
+        }
+
+        // Add click listener for toggle button
+        if (toggleSendObstaclesButton != null) {
+            toggleSendObstaclesButton.setOnClickListener(v -> toggleSendObstacles());
         }
     }
 
@@ -167,12 +147,11 @@ public class ObstacleController {
         // Clear any temporary obstacle when switching actions
         clearTemporaryObstacle();
 
-
         // Clear any unconfirmed preview border when changing action
         clearPreviewBorderIfAny();
 
-        // If switching away from direction mode, clear any selected obstacle highlight
-        if (!"direction".equals(action) && selectedObstacleRow != -1 && selectedObstacleCol != -1) {
+        // If switching away from current mode, clear any selected obstacle highlight
+        if (selectedObstacleRow != -1 && selectedObstacleCol != -1) {
             if (gridAdapter != null) {
                 gridAdapter.clearSelectedObstacleHighlight(selectedObstacleRow, selectedObstacleCol);
             }
@@ -180,8 +159,7 @@ public class ObstacleController {
             selectedObstacleCol = -1;
         }
 
-        // Reset direction selection states
-        selectedDirection = "";
+        // Reset selection states
         selectedObstacleRow = -1;
         selectedObstacleCol = -1;
 
@@ -208,7 +186,6 @@ public class ObstacleController {
         }
         selectedObstacleRow = -1;
         selectedObstacleCol = -1;
-        selectedDirection = "";
 
         // Update UI: only show Clear All during remove mode
         if (borderDirectionSection != null) borderDirectionSection.setVisibility(View.GONE);
@@ -231,14 +208,6 @@ public class ObstacleController {
             if (clearAllObstaclesButton != null) clearAllObstaclesButton.setVisibility(View.GONE);
             isDraggingObstacle = false;
             showToast("Add mode: Click on the grid to place an obstacle");
-        } else if ("direction".equals(action)) {
-            if (borderDirectionSection != null) borderDirectionSection.setVisibility(View.VISIBLE);
-            if (obstacleActionStatus != null) obstacleActionStatus.setText("Click an obstacle, then choose a direction and Confirm");
-            if (confirmObstacleButton != null) confirmObstacleButton.setVisibility(View.GONE);
-            if (cancelObstacleButton != null) cancelObstacleButton.setVisibility(View.GONE);
-            if (clearAllObstaclesButton != null) clearAllObstaclesButton.setVisibility(View.GONE);
-            isDraggingObstacle = false;
-            showToast("Direction mode: Select an obstacle to set its direction");
         } else if ("remove".equals(action)) {
             // Should be handled by enterRemoveMode(), but keep consistent state if called
             enterRemoveMode();
@@ -256,16 +225,13 @@ public class ObstacleController {
         if (!isObstacleModeEnabled || gridAdapter == null) return;
 
         if (currentObstacleAction.isEmpty()) {
-            showToast("Please select Add or Set Direction first");
+            showToast("Please select Add first");
             return;
         }
 
         switch (currentObstacleAction) {
             case "add":
                 handleAddObstacleClick(row, col);
-                return;
-            case "direction":
-                handleDirectionObstacleClick(row, col);
                 return;
             case "remove":
                 showToast("Press Clear All to remove obstacles");
@@ -286,9 +252,6 @@ public class ObstacleController {
             if (previousTemporaryRow != -1 && previousTemporaryCol != -1) {
                 gridAdapter.beginBatchUpdates();
                 try {
-                    if (selectedDirection != null && !selectedDirection.isEmpty()) {
-                        gridAdapter.clearCellBorder(previousTemporaryRow, previousTemporaryCol);
-                    }
                     if (gridAdapter.isCellPermanentObstacle(previousTemporaryRow, previousTemporaryCol)) {
                         gridAdapter.setObstacle(previousTemporaryRow, previousTemporaryCol, true);
                     } else {
@@ -308,10 +271,6 @@ public class ObstacleController {
             try {
                 gridAdapter.updateCell(row, col, "?", Color.parseColor("#FF9800"));
                 gridAdapter.applyTempRowColHighlight(row, col);
-                if (selectedDirection != null && !selectedDirection.isEmpty()) {
-                    int borderColor = Color.parseColor("#4CAF50");
-                    gridAdapter.highlightCellBorder(row, col, borderColor, selectedDirection);
-                }
             } finally {
                 gridAdapter.endBatchUpdates();
             }
@@ -335,8 +294,6 @@ public class ObstacleController {
             previousTemporaryCol = col;
             isDraggingObstacle = true;
 
-            selectedDirection = "";
-
             // Begin low-latency continuous drag updates
             beginContinuousDragIfSupported();
 
@@ -354,45 +311,9 @@ public class ObstacleController {
 
     }
 
-    private void handleDirectionObstacleClick(int row, int col) {
-        if (gridAdapter.isCellObstacle(row, col) && !gridAdapter.isCellRobot(row, col) && !gridAdapter.isCellTemporaryObstacle(row, col)) {
-            // If there is an unconfirmed preview on another cell, clear it
-            if (hasPreviewBorder && (previewBorderRow != row || previewBorderCol != col)) {
-                gridAdapter.clearCellBorder(previewBorderRow, previewBorderCol);
-                hasPreviewBorder = false;
-                previewBorderRow = -1;
-                previewBorderCol = -1;
-            }
-
-            // Clear previous selected obstacle yellow highlight if selecting a different one
-            if (selectedObstacleRow != -1 && selectedObstacleCol != -1 && (selectedObstacleRow != row || selectedObstacleCol != col)) {
-                gridAdapter.clearSelectedObstacleHighlight(selectedObstacleRow, selectedObstacleCol);
-            }
-
-            selectedObstacleRow = row;
-            selectedObstacleCol = col;
-
-            // Highlight this selected obstacle in yellow
-            gridAdapter.highlightSelectedObstacle(row, col);
-
-            // Show cancel/confirm; confirm enabled only when a direction picked
-            if (cancelObstacleButton != null) {
-                cancelObstacleButton.setVisibility(View.VISIBLE);
-            }
-            if (confirmObstacleButton != null) {
-                confirmObstacleButton.setVisibility(View.VISIBLE);
-            }
-            updateConfirmButtonState();
-        } else {
-            showToast("Select a valid obstacle cell");
-        }
-    }
-
     private void confirmObstacleAction() {
         if ("add".equals(currentObstacleAction)) {
             confirmAddObstacle();
-        } else if ("direction".equals(currentObstacleAction)) {
-            confirmDirectionObstacle();
         } else if ("remove".equals(currentObstacleAction)) {
             clearAllObstaclesAndResetUI();
         }
@@ -420,6 +341,14 @@ public class ObstacleController {
         // End continuous drag session
         endContinuousDragIfActive();
 
+        // Clear the input fields when confirming obstacle placement
+        if (tempObstacleXInput != null) {
+            tempObstacleXInput.setText("");
+        }
+        if (tempObstacleYInput != null) {
+            tempObstacleYInput.setText("");
+        }
+
         // Reset the dragging state completely
         resetTemporaryObstacleState();
 
@@ -435,45 +364,6 @@ public class ObstacleController {
         updateConfirmButtonState();
     }
 
-    private void confirmDirectionObstacle() {
-        if (selectedObstacleRow == -1 || selectedObstacleCol == -1) {
-            showToast("Select an obstacle first");
-            return;
-        }
-        if (selectedDirection == null || selectedDirection.isEmpty()) {
-            showToast("Select a direction");
-            return;
-        }
-
-        int obstacleNumber = gridAdapter.getObstacleNumber(selectedObstacleRow, selectedObstacleCol);
-        if (obstacleNumber <= 0) {
-            showToast("Cannot determine obstacle ID");
-            return;
-        }
-
-        // Keep the border as the committed direction; just clear preview state
-        hasPreviewBorder = false;
-        previewBorderRow = -1;
-        previewBorderCol = -1;
-
-        // Clear selected obstacle yellow highlight
-        if (selectedObstacleRow != -1 && selectedObstacleCol != -1) {
-            gridAdapter.clearSelectedObstacleHighlight(selectedObstacleRow, selectedObstacleCol);
-        }
-
-        selectedObstacleRow = -1;
-        selectedObstacleCol = -1;
-        selectedDirection = "";
-
-        if (confirmObstacleButton != null) {
-            confirmObstacleButton.setVisibility(View.GONE);
-        }
-        if (cancelObstacleButton != null) {
-            cancelObstacleButton.setVisibility(View.GONE);
-        }
-        updateConfirmButtonState();
-    }
-
     public void cancelObstacleAction() {
         endContinuousDragIfActive();
         clearTemporaryObstacle();
@@ -486,7 +376,6 @@ public class ObstacleController {
 
         selectedObstacleRow = -1;
         selectedObstacleCol = -1;
-        selectedDirection = "";
         updateConfirmButtonState();
         if (obstacleActionStatus != null) {
             obstacleActionStatus.setText("Select an action above");
@@ -500,70 +389,6 @@ public class ObstacleController {
         showToast("Obstacle action cancelled");
     }
 
-    private void setBorder(String direction) {
-        // In direction mode, apply border highlight to the selected obstacle
-        if ("direction".equals(currentObstacleAction)) {
-            if (selectedObstacleRow != -1 && selectedObstacleCol != -1) {
-                // If a preview was on another cell, clear it first
-                if (hasPreviewBorder && (previewBorderRow != selectedObstacleRow || previewBorderCol != selectedObstacleCol)) {
-                    gridAdapter.clearCellBorder(previewBorderRow, previewBorderCol);
-                    hasPreviewBorder = false;
-                }
-
-                // Clear existing border on the selected cell then set new one (preview)
-                gridAdapter.beginBatchUpdates();
-                try {
-                    gridAdapter.clearCellBorder(selectedObstacleRow, selectedObstacleCol);
-                    int borderColor = Color.parseColor("#4CAF50");
-                    gridAdapter.highlightCellBorder(selectedObstacleRow, selectedObstacleCol, borderColor, direction);
-                } finally {
-                    gridAdapter.endBatchUpdates();
-                }
-                selectedDirection = direction;
-
-                // Track preview state
-                previewBorderRow = selectedObstacleRow;
-                previewBorderCol = selectedObstacleCol;
-                hasPreviewBorder = true;
-
-                updateConfirmButtonState();
-                String directionName = getDirectionName(direction);
-                showToast(directionName + " selected for obstacle");
-            } else {
-                showToast("Select an obstacle first");
-            }
-            return;
-        }
-
-        // Existing behavior for add mode temporary obstacle
-        if (isDraggingObstacle && temporaryObstacleRow != -1 && temporaryObstacleCol != -1) {
-            gridAdapter.beginBatchUpdates();
-            try {
-                gridAdapter.clearCellBorder(temporaryObstacleRow, temporaryObstacleCol);
-                int borderColor = Color.parseColor("#4CAF50");
-                gridAdapter.highlightCellBorder(temporaryObstacleRow, temporaryObstacleCol, borderColor, direction);
-            } finally {
-                gridAdapter.endBatchUpdates();
-            }
-        }
-
-        selectedDirection = direction;
-        updateConfirmButtonState();
-
-        String directionName = getDirectionName(direction);
-        showToast(directionName + " border selected for obstacle");
-    }
-
-    private String getDirectionName(String direction) {
-        switch (direction.toUpperCase()) {
-            case "N": return "North";
-            case "S": return "South";
-            case "E": return "East";
-            case "W": return "West";
-            default: return direction;
-        }
-    }
-
     private void clearAllObstacles() {
         if (gridAdapter != null) {
             gridAdapter.clearAllObstacles();
@@ -572,7 +397,6 @@ public class ObstacleController {
     }
 
     private void updateObstacleCoordinate() {
-
         if (confirmObstacleButton != null) {
             confirmObstacleButton.setVisibility(View.VISIBLE);
         }
@@ -587,9 +411,6 @@ public class ObstacleController {
             boolean canConfirm;
             if ("add".equals(currentObstacleAction)) {
                 canConfirm = isDraggingObstacle && temporaryObstacleRow != -1 && temporaryObstacleCol != -1;
-            } else if ("direction".equals(currentObstacleAction)) {
-                canConfirm = (selectedObstacleRow != -1 && selectedObstacleCol != -1 &&
-                             selectedDirection != null && !selectedDirection.isEmpty());
             } else if ("remove".equals(currentObstacleAction)) {
                 // Confirm button in remove mode is tied to Clear All
                 canConfirm = false;
@@ -605,7 +426,10 @@ public class ObstacleController {
             if (gridAdapter != null) {
                 gridAdapter.beginBatchUpdates();
                 try {
-                    gridAdapter.clearCellBorder(previousTemporaryRow, previousTemporaryCol);
+                    // Only clear border if this was actually a temporary obstacle, not a permanent one
+                    if (gridAdapter.isCellTemporaryObstacle(previousTemporaryRow, previousTemporaryCol)) {
+                        gridAdapter.clearCellBorder(previousTemporaryRow, previousTemporaryCol);
+                    }
                     gridAdapter.clearTemporaryObstacle(previousTemporaryRow, previousTemporaryCol);
                 } finally {
                     gridAdapter.endBatchUpdates();
@@ -650,6 +474,12 @@ public class ObstacleController {
 
     // Build and send obstacles JSON with mode "0"
     private void sendAllObstacles() {
+        // Check if sending is enabled
+        if (!isSendObstaclesEnabled) {
+            showToast("Send Obstacles is disabled. Enable it first.");
+            return;
+        }
+
         if (gridAdapter == null) {
             showToast("Grid not ready");
             return;
@@ -736,7 +566,8 @@ public class ObstacleController {
                 // Clear previous temp cell visuals and border
                 gridAdapter.beginBatchUpdates();
                 try {
-                    if (selectedDirection != null && !selectedDirection.isEmpty()) {
+                    // Only clear border if the previous position was actually a temporary obstacle
+                    if (gridAdapter.isCellTemporaryObstacle(previousTemporaryRow, previousTemporaryCol)) {
                         gridAdapter.clearCellBorder(previousTemporaryRow, previousTemporaryCol);
                     }
                     gridAdapter.updateCell(previousTemporaryRow, previousTemporaryCol, "", Color.parseColor("#E0E0E0"));
@@ -748,10 +579,6 @@ public class ObstacleController {
                     previousTemporaryCol = col;
                     gridAdapter.updateCell(row, col, "?", Color.parseColor("#FF9800"));
                     gridAdapter.applyTempRowColHighlight(row, col);
-                    if (selectedDirection != null && !selectedDirection.isEmpty()) {
-                        int borderColor = Color.parseColor("#4CAF50");
-                        gridAdapter.highlightCellBorder(row, col, borderColor, selectedDirection);
-                    }
                 } finally {
                     gridAdapter.endBatchUpdates();
                 }
@@ -789,7 +616,6 @@ public class ObstacleController {
         }
         selectedObstacleRow = -1;
         selectedObstacleCol = -1;
-        selectedDirection = "";
         currentObstacleAction = "";
         clearAllObstacles();
         if (obstacleActionStatus != null) {
@@ -820,7 +646,7 @@ public class ObstacleController {
      * Place a temporary obstacle at the specified coordinates from user input
      */
     private void placeTempObstacleByCoordinates() {
-        if (tempObstacleXInput == null || tempObstacleYInput == null || tempObstacleStatusText == null) {
+        if (tempObstacleXInput == null || tempObstacleYInput == null || tempObstacleStatusText == null || tempObstacleDirectionSpinner == null) {
             showToast("Input fields not available");
             return;
         }
@@ -863,6 +689,9 @@ public class ObstacleController {
                 return;
             }
 
+            // Get selected direction from spinner
+            String selectedSpinnerDirection = getSelectedDirectionFromSpinner();
+
             // Clear any existing temporary obstacle
             clearTemporaryObstacle();
 
@@ -876,11 +705,17 @@ public class ObstacleController {
             // Set current action to add mode to enable confirmation
             currentObstacleAction = "add";
 
-            // Update the grid
+            // Update the grid with direction border if selected
             gridAdapter.beginBatchUpdates();
             try {
                 gridAdapter.updateCell(gridRow, gridCol, "?", Color.parseColor("#FF9800"));
                 gridAdapter.applyTempRowColHighlight(gridRow, gridCol);
+
+                // Apply direction border if selected
+                if (!selectedSpinnerDirection.isEmpty()) {
+                    int borderColor = Color.parseColor("#4CAF50");
+                    gridAdapter.highlightCellBorder(gridRow, gridCol, borderColor, selectedSpinnerDirection);
+                }
             } finally {
                 gridAdapter.endBatchUpdates();
             }
@@ -891,15 +726,51 @@ public class ObstacleController {
                 obstacleListener.updateGridTableHeader();
             }
 
-            // Clear input fields
-            tempObstacleXInput.setText("");
-            tempObstacleYInput.setText("");
+            // Don't clear input fields here - keep X and Y values for user convenience
 
-            updateTempObstacleStatus("Temporary obstacle placed at (" + displayX + ", " + displayY + "). Click Confirm to make permanent.", true);
-            showToast("Temporary obstacle placed at (" + displayX + ", " + displayY + ")");
+            String directionText = !selectedSpinnerDirection.isEmpty() ?
+                " with " + getDirectionName(selectedSpinnerDirection) + " direction" : "";
+            updateTempObstacleStatus("Temporary obstacle placed at (" + displayX + ", " + displayY + ")" + directionText + ". Click Confirm to make permanent.", true);
+            showToast("Temporary obstacle placed at (" + displayX + ", " + displayY + ")" + directionText);
 
         } catch (NumberFormatException e) {
             updateTempObstacleStatus("Please enter valid numbers for coordinates", false);
+        }
+    }
+
+    /**
+     * Get the selected direction from the spinner and convert to internal format
+     */
+    private String getSelectedDirectionFromSpinner() {
+        if (tempObstacleDirectionSpinner == null) {
+            return "";
+        }
+
+        String selectedItem = tempObstacleDirectionSpinner.getSelectedItem().toString();
+        switch (selectedItem.toLowerCase()) {
+            case "up":
+                return "N";
+            case "down":
+                return "S";
+            case "left":
+                return "W";
+            case "right":
+                return "E";
+            default:
+                return "";
+        }
+    }
+
+    /**
+     * Get the display name for a direction
+     */
+    private String getDirectionName(String direction) {
+        switch (direction.toUpperCase()) {
+            case "N": return "North";
+            case "S": return "South";
+            case "E": return "East";
+            case "W": return "West";
+            default: return direction;
         }
     }
 
@@ -909,12 +780,40 @@ public class ObstacleController {
     private void updateTempObstacleStatus(String message, boolean isSuccess) {
         if (tempObstacleStatusText != null) {
             tempObstacleStatusText.setText(message);
-            // You could also change text color based on success/error if needed
+            // Change text color based on success/error
             if (isSuccess) {
                 tempObstacleStatusText.setTextColor(Color.parseColor("#4CAF50")); // Green for success
             } else {
                 tempObstacleStatusText.setTextColor(Color.parseColor("#F44336")); // Red for error
             }
+        }
+    }
+
+    /**
+     * Toggle the state of sending obstacles
+     */
+    private void toggleSendObstacles() {
+        isSendObstaclesEnabled = !isSendObstaclesEnabled;
+        updateSendObstaclesButtonState();
+
+        String statusMessage = isSendObstaclesEnabled ? "Send Obstacles: ON" : "Send Obstacles: OFF";
+        showToast(statusMessage);
+    }
+
+    /**
+     * Update the visual state of the send obstacles button and toggle button
+     */
+    private void updateSendObstaclesButtonState() {
+        if (toggleSendObstaclesButton != null) {
+            int color = isSendObstaclesEnabled ? Color.parseColor("#4CAF50") : Color.parseColor("#F44336");
+            toggleSendObstaclesButton.setBackgroundColor(color);
+            toggleSendObstaclesButton.setText(isSendObstaclesEnabled ? "Enabled" : "Disabled");
+        }
+
+        if (sendObstaclesButton != null) {
+            sendObstaclesButton.setEnabled(isSendObstaclesEnabled);
+            // Apply blur effect when disabled
+            sendObstaclesButton.setAlpha(isSendObstaclesEnabled ? 1.0f : 0.5f);
         }
     }
 }

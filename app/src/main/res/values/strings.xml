@@ -3,4 +3,12 @@
     <string name="bluetooth_status">Bluetooth Status</string>
     <string name="scan_devices">Scan Devices</string>
     <string name="instructions">Instructions:</string>
+
+    <!-- Direction options for temporary obstacle -->
+    <string-array name="direction_options">
+        <item>Up</item>
+        <item>Down</item>
+        <item>Left</item>
+        <item>Right</item>
+    </string-array>
 </resources>

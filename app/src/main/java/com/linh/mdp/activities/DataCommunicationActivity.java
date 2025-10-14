@@ -27,6 +27,8 @@ import com.linh.mdp.managers.DataCommunicationManager;
 import com.linh.mdp.parsers.MessageParser;
 import com.linh.mdp.utils.BluetoothConstants;
 
+import java.util.Arrays;
+
 public class DataCommunicationActivity extends AppCompatActivity implements
     BluetoothConnectionListener,
     FabMenuController.OnFabMenuListener,
@@ -156,22 +158,18 @@ public class DataCommunicationActivity extends AppCompatActivity implements
         // Setup Obstacle Controller
         obstacleController.initialize(gridAdapter, bluetoothHelper, this);
         obstacleController.setUIComponents(
-            findViewById(R.id.addObstacleButton),
             findViewById(R.id.clearAllObstaclesButton),
             findViewById(R.id.confirmObstacleButton),
             findViewById(R.id.cancelObstacleButton),
-            findViewById(R.id.setDirectionButton),
-            findViewById(R.id.northBorderButton),
-            findViewById(R.id.southBorderButton),
-            findViewById(R.id.eastBorderButton),
-            findViewById(R.id.westBorderButton),
             findViewById(R.id.obstacleActionStatus),
             findViewById(R.id.borderDirectionSection),
             findViewById(R.id.sendObstaclesButton),
+            findViewById(R.id.toggleSendObstaclesButton),
             findViewById(R.id.tempObstacleXInput),
             findViewById(R.id.tempObstacleYInput),
             findViewById(R.id.placeTempObstacleButton),
-            findViewById(R.id.tempObstacleStatusText)
+            findViewById(R.id.tempObstacleStatusText),
+            findViewById(R.id.tempObstacleDirectionSpinner)
         );
 
         // Wire the dedicated Remove Obstacle button to enter remove mode (reveals Clear All)
@@ -239,10 +237,6 @@ public class DataCommunicationActivity extends AppCompatActivity implements
             }
             return true;
         }
-
-        // In Set Direction mode, disable any drag so taps can select obstacles
-        if (obstacleController.isObstacleModeEnabled() &&
-            "direction".equals(obstacleController.getCurrentObstacleAction())) return false;
 
         // Compute touched position within GridView
         int x = (int) event.getX();
@@ -389,7 +383,7 @@ public class DataCommunicationActivity extends AppCompatActivity implements
             // Start a 60-second grace period to allow auto-reconnect
             if (!isWaitingForReconnect) {
                 isWaitingForReconnect = true;
-                Toast.makeText(this, "Device disconnected. Waiting 60s for reconnection...", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, "Device disconnected. Waiting 1 hour for reconnection...", Toast.LENGTH_LONG).show();
                 delayedFinishRunnable = () -> {
                     // If still disconnected after 60s, leave this screen
                     if (bluetoothHelper == null || !bluetoothHelper.isConnected()) {
@@ -413,16 +407,22 @@ public class DataCommunicationActivity extends AppCompatActivity implements
 
             // Parse and handle different types of messages
             if (messageParser != null) {
-                messageParser.parseAndHandleRobotCommands(data);
-                messageParser.parseAndHandleTargetMessages(data);
-                messageParser.parseAndHandleRobotMessages(data);
+                String[] parts = Arrays.stream(data.split("\\n"))
+                        .map(String::trim)
+                        .filter(str -> !str.isEmpty())
+                        .toArray(String[]::new);
+                for (String part : parts) {
+                    messageParser.parseAndHandleRobotCommands(part);
+                    messageParser.parseAndHandleTargetMessages(part);
+                    messageParser.parseAndHandleRobotMessages(part);
 
-                // Only display selective/important messages in the UI
-                if (messageParser.shouldDisplayMessage(data)) {
-                    dataCommunicationManager.addImportantMessage(data);
-                } else {
-                    // Log filtered out messages for debugging
-                    Log.d(TAG, "Filtered out message: " + data);
+                    // Only display selective/important messages in the UI
+                    if (messageParser.shouldDisplayMessage(part)) {
+                        dataCommunicationManager.addImportantMessage(part);
+                    } else {
+                        // Log filtered out messages for debugging
+                        Log.d(TAG, "Filtered out message: " + part);
+                    }
                 }
             }
         });
@@ -550,9 +550,6 @@ public class DataCommunicationActivity extends AppCompatActivity implements
             } else if ("add".equals(obstacleController.getCurrentObstacleAction()) &&
                       obstacleController.isObstacleModeEnabled()) {
                 gridTableHeaderText.setText("Add Obstacle Mode - Click on grid:");
-            } else if ("direction".equals(obstacleController.getCurrentObstacleAction()) &&
-                      obstacleController.isObstacleModeEnabled()) {
-                gridTableHeaderText.setText("Set Direction Mode - Select obstacle then N/S/E/W:");
             } else if (obstacleController.isObstacleModeEnabled()) {
                 gridTableHeaderText.setText("Obstacle Mode Active (Index 0-19):");
             } else {

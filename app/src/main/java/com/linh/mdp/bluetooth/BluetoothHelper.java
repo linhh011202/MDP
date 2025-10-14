@@ -47,7 +47,7 @@ public class BluetoothHelper {
     // Auto-reconnection fields
     private BluetoothDevice lastConnectedDevice;
     private final boolean autoReconnectEnabled = true;
-    private static final int RECONNECTION_DELAY_MS = 60000; // 60 seconds
+    private static final int RECONNECTION_DELAY_MS = 3_600_000; // 1 hour
     private static final int MAX_RECONNECTION_ATTEMPTS = 5;
     private int reconnectionAttempts = 0;
     private final Handler reconnectionHandler = new Handler(Looper.getMainLooper());

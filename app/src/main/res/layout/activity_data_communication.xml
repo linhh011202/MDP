@@ -118,22 +118,10 @@
                     android:gravity="center">
 
                     <Button
-                        android:id="@+id/addObstacleButton"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:layout_marginEnd="8dp"
-                        android:text="Add Obstacle"
-                        android:backgroundTint="#FF5722"
-                        android:textColor="@android:color/white"
-                        android:textSize="14sp" />
-
-                    <Button
                         android:id="@+id/removeObstacleButton"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:layout_marginStart="8dp"
                         android:layout_marginEnd="8dp"
                         android:text="Remove Obstacle"
                         android:backgroundTint="#9E9E9E"
@@ -141,15 +129,43 @@
                         android:textSize="14sp" />
 
                     <Button
-                        android:id="@+id/setDirectionButton"
+                        android:id="@+id/sendObstaclesButton"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:layout_marginStart="8dp"
-                        android:text="Set Direction"
-                        android:backgroundTint="#3F51B5"
+                        android:text="Send Obstacles"
+                        android:backgroundTint="#009688"
                         android:textColor="@android:color/white"
                         android:textSize="14sp" />
+
+                </LinearLayout>
+
+                <!-- Toggle Button for Send Obstacles -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center"
+                    android:layout_marginTop="12dp">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Enable Send Obstacles:"
+                        android:textSize="14sp"
+                        android:textColor="#333333"
+                        android:gravity="center_vertical" />
+
+                    <Button
+                        android:id="@+id/toggleSendObstaclesButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Enabled"
+                        android:backgroundTint="#4CAF50"
+                        android:textColor="@android:color/white"
+                        android:textSize="12sp"
+                        android:minWidth="80dp" />
 
                 </LinearLayout>
 
@@ -180,68 +196,9 @@
                         android:textColor="#666666"
                         android:layout_marginBottom="8dp" />
 
-                    <!-- Directional border buttons in cross layout -->
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:gravity="center">
-
-                        <!-- North button (top) -->
-                        <Button
-                            android:id="@+id/northBorderButton"
-                            android:layout_width="100dp"
-                            android:layout_height="40dp"
-                            android:text="North"
-                            android:backgroundTint="#2196F3"
-                            android:textColor="@android:color/white"
-                            android:textSize="12sp"
-                            android:layout_marginBottom="4dp" />
-
-                        <!-- West and East buttons (middle row) -->
-                        <LinearLayout
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:orientation="horizontal">
-
-                            <Button
-                                android:id="@+id/westBorderButton"
-                                android:layout_width="80dp"
-                                android:layout_height="40dp"
-                                android:text="West"
-                                android:backgroundTint="#FF9800"
-                                android:textColor="@android:color/white"
-                                android:textSize="12sp"
-                                android:layout_marginEnd="40dp" />
-
-                            <Button
-                                android:id="@+id/eastBorderButton"
-                                android:layout_width="80dp"
-                                android:layout_height="40dp"
-                                android:text="East"
-                                android:backgroundTint="#9C27B0"
-                                android:textColor="@android:color/white"
-                                android:textSize="12sp"
-                                android:layout_marginStart="40dp" />
-
-                        </LinearLayout>
-
-                        <!-- South button (bottom) -->
-                        <Button
-                            android:id="@+id/southBorderButton"
-                            android:layout_width="100dp"
-                            android:layout_height="40dp"
-                            android:text="South"
-                            android:backgroundTint="#4CAF50"
-                            android:textColor="@android:color/white"
-                            android:textSize="12sp"
-                            android:layout_marginTop="4dp" />
-
-                    </LinearLayout>
                 </LinearLayout>
 
                 <!-- Obstacle coordinate display -->
-
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -270,17 +227,6 @@
                         android:layout_marginEnd="8dp" />
 
                     <Button
-                        android:id="@+id/confirmObstacleButton"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Confirm"
-                        android:backgroundTint="#4CAF50"
-                        android:textColor="@android:color/white"
-                        android:textSize="12sp"
-                        android:visibility="gone"
-                        android:layout_marginEnd="8dp" />
-
-                    <Button
                         android:id="@+id/clearAllObstaclesButton"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
@@ -290,24 +236,6 @@
                         android:textSize="12sp"
                         android:visibility="gone" />
 
-                </LinearLayout>
-
-                <!-- New row for Send Obstacles button -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:layout_marginTop="8dp"
-                    android:gravity="end">
-
-                    <Button
-                        android:id="@+id/sendObstaclesButton"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Send Obstacles"
-                        android:backgroundTint="#009688"
-                        android:textColor="@android:color/white"
-                        android:textSize="12sp" />
                 </LinearLayout>
 
                 <!-- Temporary Obstacle Position Input Section -->
@@ -393,6 +321,25 @@
 
                     </LinearLayout>
 
+                    <!-- Direction Dropdown -->
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Select Direction:"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:textColor="#333333"
+                        android:layout_marginTop="12dp"
+                        android:layout_marginBottom="8dp" />
+
+                    <Spinner
+                        android:id="@+id/tempObstacleDirectionSpinner"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="@android:drawable/edit_text"
+                        android:entries="@array/direction_options"
+                        android:spinnerMode="dropdown" />
+
                     <TextView
                         android:id="@+id/tempObstacleStatusText"
                         android:layout_width="match_parent"
@@ -402,6 +349,27 @@
                         android:textColor="#666666"
                         android:layout_marginTop="4dp"
                         android:gravity="center" />
+
+                </LinearLayout>
+
+                <!-- Moved buttons below Temporary Obstacle Position Input Section -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginTop="8dp"
+                    android:gravity="end">
+
+                    <Button
+                        android:id="@+id/confirmObstacleButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Confirm"
+                        android:backgroundTint="#4CAF50"
+                        android:textColor="@android:color/white"
+                        android:textSize="12sp"
+                        android:visibility="gone"
+                        android:layout_marginEnd="8dp" />
 
                 </LinearLayout>
 

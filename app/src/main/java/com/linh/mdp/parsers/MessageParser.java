@@ -3,8 +3,9 @@ package com.linh.mdp.parsers;
 import android.util.Log;
 
 import com.linh.mdp.adapters.GridTableAdapter;
-import org.json.JSONObject;
+
 import org.json.JSONException;
+import org.json.JSONObject;
 
 /**
  * Parser class to handle different types of incoming Bluetooth messages
