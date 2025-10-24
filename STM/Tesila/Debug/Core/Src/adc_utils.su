@@ -1,0 +1,4 @@
+../Core/Src/adc_utils.c:22:7:IR_ReadVDDA_Vrefint	32	static
+../Core/Src/adc_utils.c:55:10:ADC1_Read_Channel	40	static
+../Core/Src/adc_utils.c:75:7:IR_RawToVolts	16	static
+../Core/Src/adc_utils.c:85:7:IR_VoltsToCm	56	static

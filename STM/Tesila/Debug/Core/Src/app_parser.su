@@ -1,0 +1,4 @@
+../Core/Src/app_parser.c:32:6:Parser_Init	16	static
+../Core/Src/app_parser.c:41:6:Parser_Process	8	static
+../Core/Src/app_parser.c:96:13:return_sensor_request_cmd	40	static
+../Core/Src/app_parser.c:132:13:get_motion_cmd_from_bytes	32	static
